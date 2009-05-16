@@ -66,6 +66,34 @@ function doXMLHttpRequest(options) {
   client.send(data);
 }
 
+function reblog(uri, popup) {
+  if (popup && isIPhoneView) {
+    window.open(uri)
+    return;
+  }
+  doXMLHttpRequest({
+    uri: uri,
+    onLoad: function(response) {
+      var formExp = /<form action="\/reblog[\s\S]*?<\/form>/; //"
+      var div = document.createElement('div');
+      div.innerHTML = response.responseText.match(formExp)[0];
+      var form = new Form(div.firstChild);
+      form.onError = function() {
+        if (window.confirm('Failed to reblog the post. Retry?'))
+          form.submit();
+      };
+      if (popup)
+        form.show();
+      else
+        form.submit();
+    },
+    onError: function() {
+      if (window.confirm('Failed to reblog the post. Retry?'))
+        reblog(uri, popup);
+    }
+  });
+}
+
 function StyleSheet() {
   this.style = document.createElement('style');
   this.style.type = 'text/css';
@@ -406,7 +434,7 @@ PostIterator.prototype.setCurrent = function(current) {
   if (this.current)
     this.current.style.backgroundColor = '#fff';
   this.current = current;
-  if (actionsEnabled && this.current)
+  if (actionDispatcher.enabled && this.current)
     this.current.style.backgroundColor = '#cfc';
 };
 
@@ -423,6 +451,7 @@ PostIterator.prototype.refresh = function() {
 
 function ActionDispatcher() {
   this.topLeft = this.topRight = this.buttomLeft = this.bottomRight = ActionDispatcher.actions.nothing;
+  this.enabled = false;
 }
 
 ActionDispatcher.actions = [
@@ -492,6 +521,13 @@ ActionDispatcher.actions = [
     action: function() {
     }
   },
+  // reblog with user defined preset ("Post to", "Publishing options", etc.)
+  {
+    name: 'preset',
+    longName: 'preset',
+    action: function() {
+    }
+  },
   {
     name: 'open',
     longName: 'open the post',
@@ -529,38 +565,42 @@ ActionDispatcher.prototype.set = function(topLeft, topRight, bottomLeft, bottomR
   this.bottomRight = ActionDispatcher.actions[bottomRight];
 };
 
-ActionDispatcher.prototype.enable = function() {
-  if (this.enabled)
+ActionDispatcher.prototype.enable = function(enable) {
+  if (arguments.length == 0)
+    enable = true;
+  if (this.enabled == enable)
     return;
-  var self = this;
-  this.enabled = true;
-  this.cover = new Cover(0.0);
-  this.cover.show();
-  this.cover.onClick(function(event) {
-    var x = event.clientX;
-    var y = event.clientY - window.pageYOffset;
-    if (x < window.innerWidth / 2) {
-      if (y < window.innerHeight / 2)
-        self.topLeft.action();
-      else
-        self.bottomLeft.action();
-    }
-    else {
-      if (y < window.innerHeight / 2)
-        self.topRight.action();
-      else
-        self.bottomRight.action();
-    }
-    event.stopPropagation();
-    event.preventDefault();
-  });
+  if (enable) {
+    var self = this;
+    this.cover = new Cover(0.0);
+    this.cover.show();
+    this.cover.onClick(function(event) {
+      var x = event.clientX;
+      var y = event.clientY - window.pageYOffset;
+      if (x < window.innerWidth / 2) {
+        if (y < window.innerHeight / 2)
+          self.topLeft.action();
+        else
+          self.bottomLeft.action();
+      }
+      else {
+        if (y < window.innerHeight / 2)
+          self.topRight.action();
+        else
+          self.bottomRight.action();
+      }
+      event.stopPropagation();
+      event.preventDefault();
+    });
+  }
+  else {
+    this.cover.hide();
+  }
+  this.enabled = Boolean(enable);
 };
 
 ActionDispatcher.prototype.disable = function() {
-  if (!this.enabled)
-    return;
-  this.enabled = false;
-  this.cover.hide();
+  this.enable(false);
 };
 
 function Post(element) {
@@ -575,59 +615,109 @@ Post.prototype.reblog = function(popup) {
     reblog(RegExp.$1, popup);
 };
 
-function reblog(uri, popup) {
-  if (popup && isIPhoneView) {
-    window.open(uri)
-    return;
-  }
-  doXMLHttpRequest({
-    uri: uri,
-    onLoad: function(response) {
-      var formExp = /<form action="\/reblog[\s\S]*?<\/form>/; //"
-      var div = document.createElement('div');
-      div.innerHTML = response.responseText.match(formExp)[0];
-      var form = new Form(div.firstChild);
-      form.onError = function() {
-        if (window.confirm('Failed to reblog the post. Retry?'))
-          form.submit();
-      };
-      if (popup)
-        form.show();
-      else
-        form.submit();
-    },
-    onError: function() {
-      if (window.confirm('Failed to reblog the post. Retry?'))
-        reblog(uri, popup);
-    }
-  });
-}
-
-function Config() {
-}
-
-Config.prototype.show = function() {
+function Preferences() {
   var self = this;
-  this.cover = new Cover(0.5);
-  this.cover.show();
-  this.element = document.createElement('div');
-  this.element.className = 'menu';
-  this.element.style.position = 'absolute';
-  this.element.style.top = '0';
-  this.element.style.left = '0';
-  this.element.style.backgroundColor = '#fff';
-  this.element.innerHTML =
+  var addButton = function() {
+    var showPrefNode = document.createElement('div');
+    var showPrefButton = document.createElement('input');
+    showPrefButton.type = 'button';
+    showPrefButton.name = 'show_menu';
+    showPrefButton.value = 'Preferences';
+    showPrefButton.addEventListener('click', function(event) {
+      self.showDialog();
+    }, false);
+    showPrefNode.appendChild(showPrefButton);
+    postsNode.parentNode.insertBefore(showPrefNode, postsNode);
+    self.listeners.forEach(function(listener) { listener(); });
+  };
+  this.table = {
+    enableActions: false,
+    topLeftAction: 'form',
+    topRightAction: 'prev',
+    bottomLeftAction: 'reblog',
+    bottomRightAction: 'next'
+  };
+  this.listeners = [];
+  if (window.openDatabase) {
+    try {
+      this.db = window.openDatabase('Rebloglet', '1.0', 'Rebloglet', 1024 * 1024);
+      this.db.transaction(function(transaction) {
+        transaction.executeSql(
+          "CREATE TABLE IF NOT EXISTS preferences(key TEXT, value TEXT, CONSTRAINT pk_prefs PRIMARY KEY (key));"
+        );
+        transaction.executeSql(
+          "SELECT * FROM preferences;", null,
+          function(transaction, results) {
+            for (var i = 0; i < results.rows.length; i++) {
+              var row = results.rows.item(i);
+              self.table[row['key']] = row['value'];
+            }
+          }
+        );
+      }, addButton, addButton);
+    }
+    catch (e) {
+      addButton();
+    }
+  }
+}
+
+Preferences.prototype.get = function(key, defaultValue) {
+  if (key in this.table)
+    return this.table[key];
+  else
+    return defaultValue;
+};
+
+Preferences.prototype.set = function(key, value) {
+  this.table[key] = String(value);
+};
+
+Preferences.prototype.dump = function() {
+  for (var key in this.table)
+    console.log(key + ': ' + this.table[key] + ', ');
+};
+
+Preferences.prototype.save = function() {
+  var self = this;
+  if (this.db) {
+    this.db.transaction(function(transaction) {
+      for (var key in self.table) {
+        transaction.executeSql(
+          "INSERT OR REPLACE INTO preferences(key, value) VALUES (?, ?);", [ key, self.table[key] ]
+        );
+      }
+    });
+  }
+};
+
+Preferences.prototype.addListener = function(listener) {
+  this.listeners.push(listener);
+};
+
+Preferences.prototype.showDialog = function() {
+  var self = this;
+  var cover = new Cover(0.5);
+  cover.show();
+  var div = document.createElement('div');
+  div.className = 'menu';
+  div.style.position = 'absolute';
+  div.style.top = '0';
+  div.style.left = '0';
+  div.style.backgroundColor = '#fff';
+  div.innerHTML =
     '<form action="#">'
     + '<fieldset>'
-    +   '<input type="checkbox" name="enable_actions" value="enable_actions"' + (actionsEnabled ? ' checked="checked"' : '') + '/>'
-    +   '<label for="enable_actions">execute action when each section is tapped</label>'
+    +   '<input type="checkbox" name="enableActions" value="enable_actions"' + (self.get('enableActions') == 'true' ? ' checked="checked"' : '') + '/>'
+    +   '<label for="enableActions">execute action when each section is tapped</label>'
     +   '<table>'
-    +     [ 'top left', 'top right', 'bottom left', 'bottom right' ].map(function(section,i) {
-            var name = section.replace(/ ./, function(s) { return s.charAt(1).toUpperCase(); });
+    +     [ 'top left', 'top right', 'bottom left', 'bottom right' ].map(function(section) {
+            var capitalized = section.replace(/ ./, function(s) { return s.charAt(1).toUpperCase(); });
+            var name = capitalized + 'Action';
             return '<tr><td><label for="' + name + '">' + section + '</label></td><td><select name="' + name + '">'
-              + ActionDispatcher.actions.map(function(action,j) {
+              + ActionDispatcher.actions.map(function(action) {
                   return '<option value="' + action.name + '"'
-                    + (actionDispatcher[name] == action ? ' selected="selected"' : '') + '>' + action.longName + '</option>';
+                    + (self.get(name) == action.name ? ' selected="selected"' : '') + '>' + action.longName + '</option>';
                 }).join('')
               + '</select></td></tr>';
           }).join('')
@@ -636,27 +726,31 @@ Config.prototype.show = function() {
     + '<input type="submit" value="OK"/>'
     + '<input type="button" name="cancel" value="Cancel"/>'
     +'</form>';
-  var form = this.element.firstChild;
+  var form = div.firstChild;
   form.addEventListener('submit', function(event) {
     event.preventDefault();
-    actionsEnabled = form.enable_actions.checked;
-    if (actionsEnabled)
-      actionDispatcher.enable();
-    else
-      actionDispatcher.disable();
-    actionDispatcher.set(form.topLeft.value, form.topRight.value, form.bottomLeft.value, form.bottomRight.value);
-    postIterator.refresh();
-    self.hide();
+    for (var i = 0; i < form.length; i++) {
+      var elem = form.elements[i];
+      switch (elem.type) {
+      case 'checkbox':
+        console.log(elem.checked);
+        self.set(elem.name, elem.checked);
+        break;
+      case 'select-one':
+        self.set(elem.name, elem.value);
+        break;
+      }
+    }
+    document.body.removeChild(div);
+    cover.hide();
+    self.save();
+    self.listeners.forEach(function(listener) { listener(); });
   }, false);
   $x('./input[@name="cancel"]', form)[0].addEventListener('click', function(event) {
-    self.hide();
+    document.body.removeChild(div);
+    cover.hide();
   }, false);
-  document.body.appendChild(this.element);
-};
-
-Config.prototype.hide = function() {
-  document.body.removeChild(this.element);
-  this.cover.hide();
+  document.body.appendChild(div);
 };
 
 var styleSheet = new StyleSheet();
@@ -694,25 +788,22 @@ if (!isIPhoneView) {
 
 var postsNode = $('posts');
 var paginationNode = isIPhoneView ? $('footer') : $('pagination');
-var actionsEnabled = false;
 
 var pager = new Pager();
-var postIterator = new PostIterator();
 var actionDispatcher = new ActionDispatcher();
-actionDispatcher.set('form', 'prev', 'reblog', 'next');
-var config = new Config();
+var postIterator = new PostIterator();
 
 if (isIPhoneView) {
-  var showMenuNode = document.createElement('div');
-  var showMenuButton = document.createElement('input');
-  showMenuButton.type = 'button';
-  showMenuButton.name = 'show_menu';
-  showMenuButton.value = 'Preferences';
-  showMenuButton.addEventListener('click', function(event) {
-    config.show();
-  }, false);
-  showMenuNode.appendChild(showMenuButton);
-  postsNode.parentNode.insertBefore(showMenuNode, postsNode);
+  var prefs = new Preferences();
+  prefs.addListener(function() {
+    actionDispatcher.enable(prefs.get('enableActions') == 'true');
+    [ 'topLeft', 'topRight', 'bottomLeft', 'bottomRight' ].forEach(function(section) {
+      actionDispatcher[section] = ActionDispatcher.actions[prefs.get(section + 'Action')];
+    });
+  });
+  prefs.addListener(function() {
+    postIterator.refresh();
+  });
 }
 
 (isIPhoneView ? $('posts') : $('left_column')).addEventListener('click', function(event) {
