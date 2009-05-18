@@ -114,15 +114,15 @@ function Cover(opacity) {
 Cover.prototype.show = function() {
   var self = this;
   this.refresh();
-  this.resizeListener = function(event) {
+  this.scrollListener = function(event) {
     self.refresh();
   };
   document.body.appendChild(this.element);
-  window.addEventListener('resize', this.resizeListener, false);
+  window.addEventListener('scroll', this.scrollListener, false);
 };
 
 Cover.prototype.hide = function() {
-  window.removeEventListener('resize', this.resizeListener, false);
+  window.removeEventListener('scroll', this.scrollListener, false);
   document.body.removeChild(this.element);
 };
 
@@ -393,10 +393,9 @@ Pager.prototype.disableAuto = function() {
 
 function PostIterator() {
   var self = this;
+  this.listeners = [];
   this.refresh();
-  window.addEventListener('scroll', function(event) {
-    self.refresh();
-  }, false);
+  window.addEventListener('scroll', function() { self.refresh(); }, false);
 }
 
 PostIterator.prototype.getCurrent = function() {
@@ -431,16 +430,15 @@ PostIterator.prototype.next = function() {
 };
 
 PostIterator.prototype.setCurrent = function(current) {
-  if (this.current)
-    this.current.style.backgroundColor = '#fff';
   this.current = current;
-  if (actionDispatcher.enabled && this.current)
-    this.current.style.backgroundColor = '#cfc';
+  this.listeners.forEach(function(listener) { listener(current); });
 };
 
 PostIterator.prototype.refresh = function() {
+  if (this.current && this.current.offsetTop == window.pageYOffset)
+    return;
   var posts = $x('id("posts")/*[contains(@class,"post")][not(contains(@class,"controls"))]');
-  for (var i = 0; i <posts.length; i++)
+  for (var i = 0; i < posts.length; i++)
     if (posts[i].offsetTop >= window.pageYOffset
       || posts[i].offsetTop + posts[i].offsetHeight >= window.pageYOffset + window.innerHeight / 2)
       break;
@@ -449,9 +447,14 @@ PostIterator.prototype.refresh = function() {
     pager.loadNext();
 };
 
+PostIterator.prototype.addListener = function(listener) {
+  this.listeners.push(listener);
+};
+
 function ActionDispatcher() {
   this.topLeft = this.topRight = this.buttomLeft = this.bottomRight = ActionDispatcher.actions.nothing;
-  this.enabled = false;
+  this.quadEnabled = false;
+  ($('left_column') || $('posts')).addEventListener('click', ActionDispatcher.listenerBasic, true);
 }
 
 ActionDispatcher.actions = [
@@ -464,10 +467,7 @@ ActionDispatcher.actions = [
         window.scrollTo(0, current.offsetTop);
       else {
         var prev = postIterator.prev();
-        if (prev)
-          window.scrollTo(0, prev.offsetTop);
-        else
-          window.scrollTo(0, 0);
+        window.scrollTo(0, (prev ? prev.offsetTop : 0));
       }
     }
   },
@@ -480,10 +480,7 @@ ActionDispatcher.actions = [
         window.scrollTo(0, current.offsetTop);
       else {
         var next = postIterator.next();
-        if (next)
-          window.scrollTo(0, next.offsetTop);
-        else
-          window.scrollTo(0, document.body.offsetHeight);
+        window.scrollTo(0, (next ? next.offsetTop : document.body.offsetHeight));
       }
       Pager.scrollListener();
     }
@@ -558,6 +555,34 @@ ActionDispatcher.actions.forEach(function(action) {
   ActionDispatcher.actions[action.name] = action;
 });
 
+ActionDispatcher.listenerBasic = function(event) {
+  var target = event.target;
+
+  if ($x('ancestor-or-self::a[@href="#"] | ancestor::form', target)[0])
+    return;
+
+  if (target.tagName == 'A') {
+    if (target.href.indexOf('http://www.tumblr.com/reblog/') == 0)
+      reblog(target.href, true);
+    else
+      window.open(target.href);
+    event.preventDefault();
+    return;
+  }
+
+  if (target.tagName == 'BUTTON' && target.onclick.toString().match(/location\.href\s*=\s*['"]([\/\w]+)['"]/)) { //"
+    reblog(RegExp.$1, true);
+    event.stopPropagation();
+    return;
+  }
+
+  var post = $x('ancestor-or-self::li[parent::*[@id="posts"]]', target)[0];
+  if (post) {
+    (new Post(post)).reblog();
+    event.preventDefault();
+  }
+};
+
 ActionDispatcher.prototype.set = function(topLeft, topRight, bottomLeft, bottomRight) {
   this.topLeft = ActionDispatcher.actions[topLeft];
   this.topRight = ActionDispatcher.actions[topRight];
@@ -565,42 +590,35 @@ ActionDispatcher.prototype.set = function(topLeft, topRight, bottomLeft, bottomR
   this.bottomRight = ActionDispatcher.actions[bottomRight];
 };
 
-ActionDispatcher.prototype.enable = function(enable) {
+ActionDispatcher.prototype.enableQuad = function(enable) {
   if (arguments.length == 0)
     enable = true;
-  if (this.enabled == enable)
+  if (this.quadEnabled == enable)
     return;
   if (enable) {
     var self = this;
     this.cover = new Cover(0.0);
     this.cover.show();
     this.cover.onClick(function(event) {
-      var x = event.clientX;
-      var y = event.clientY - window.pageYOffset;
-      if (x < window.innerWidth / 2) {
-        if (y < window.innerHeight / 2)
-          self.topLeft.action();
-        else
-          self.bottomLeft.action();
-      }
-      else {
-        if (y < window.innerHeight / 2)
-          self.topRight.action();
-        else
-          self.bottomRight.action();
-      }
+      var x = event.pageX - window.pageXOffset;
+      var y = event.pageY - window.pageYOffset;
+      var vertical = (y < window.innerHeight / 2) ? 'top' : 'bottom';
+      var horizontal = (x < window.innerWidth / 2) ? 'Left' : 'Right';
+      self[vertical + horizontal].action();
       event.stopPropagation();
       event.preventDefault();
     });
+    ($('left_column') || $('posts')).removeEventListener('click', ActionDispatcher.listenerBasic, true);
   }
   else {
+    ($('left_column') || $('posts')).addEventListener('click', ActionDispatcher.listenerBasic, true);
     this.cover.hide();
   }
-  this.enabled = Boolean(enable);
+  this.quadEnabled = Boolean(enable);
 };
 
-ActionDispatcher.prototype.disable = function() {
-  this.enable(false);
+ActionDispatcher.prototype.disableQuad = function() {
+  this.enableQuad(false);
 };
 
 function Post(element) {
@@ -660,6 +678,8 @@ function Preferences() {
       addButton();
     }
   }
+  else
+    addButton();
 }
 
 Preferences.prototype.get = function(key, defaultValue) {
@@ -712,8 +732,7 @@ Preferences.prototype.showDialog = function() {
     +   '<label for="enableActions">execute action when each section is tapped</label>'
     +   '<table>'
     +     [ 'top left', 'top right', 'bottom left', 'bottom right' ].map(function(section) {
-            var capitalized = section.replace(/ ./, function(s) { return s.charAt(1).toUpperCase(); });
-            var name = capitalized + 'Action';
+            var name = section.replace(/ ./, function(s) { return s.charAt(1).toUpperCase(); }) + 'Action';
             return '<tr><td><label for="' + name + '">' + section + '</label></td><td><select name="' + name + '">'
               + ActionDispatcher.actions.map(function(action) {
                   return '<option value="' + action.name + '"'
@@ -733,7 +752,6 @@ Preferences.prototype.showDialog = function() {
       var elem = form.elements[i];
       switch (elem.type) {
       case 'checkbox':
-        console.log(elem.checked);
         self.set(elem.name, elem.checked);
         break;
       case 'select-one':
@@ -752,6 +770,16 @@ Preferences.prototype.showDialog = function() {
   }, false);
   document.body.appendChild(div);
 };
+
+if (window.navigator.userAgent.indexOf('AppleWebKit') != -1 && window.navigator.userAgent.indexOf('Mobile') != -1) {
+  window.scrollTo_ = window.scrollTo;
+  window.scrollTo = function(x, y) {
+    window.scrollTo_(x, y);
+    var event = document.createEvent('HTMLEvents');
+    event.initEvent('scroll', true, false);
+    document.dispatchEvent(event);
+  };
+}
 
 var styleSheet = new StyleSheet();
 styleSheet.add('.cover {' + [
@@ -792,46 +820,23 @@ var paginationNode = isIPhoneView ? $('footer') : $('pagination');
 var pager = new Pager();
 var actionDispatcher = new ActionDispatcher();
 var postIterator = new PostIterator();
+postIterator.addListener(function(current) {
+  if (actionDispatcher.current)
+    actionDispatcher.current.style.backgroundColor = '#fff';
+  actionDispatcher.current = current;
+  if (actionDispatcher.quadEnabled && actionDispatcher.current)
+    actionDispatcher.current.style.backgroundColor = '#cfc';
+});
 
 if (isIPhoneView) {
   var prefs = new Preferences();
   prefs.addListener(function() {
-    actionDispatcher.enable(prefs.get('enableActions') == 'true');
+    actionDispatcher.enableQuad(prefs.get('enableActions') == 'true');
     [ 'topLeft', 'topRight', 'bottomLeft', 'bottomRight' ].forEach(function(section) {
       actionDispatcher[section] = ActionDispatcher.actions[prefs.get(section + 'Action')];
     });
   });
-  prefs.addListener(function() {
-    postIterator.refresh();
-  });
+  prefs.addListener(function() { postIterator.refresh(); });
 }
-
-(isIPhoneView ? $('posts') : $('left_column')).addEventListener('click', function(event) {
-  var target = event.target;
-
-  if ($x('ancestor-or-self::a[@href="#"] | ancestor::form', target)[0])
-    return;
-
-  if (target.tagName == 'A') {
-    if (target.href.indexOf('http://www.tumblr.com/reblog/') == 0)
-      reblog(target.href, true);
-    else
-      window.open(target.href);
-    event.preventDefault();
-    return;
-  }
-
-  if (target.tagName == 'BUTTON' && target.onclick.toString().match(/location\.href\s*=\s*['"]([\/\w]+)['"]/)) { //"
-    reblog(RegExp.$1, true);
-    event.stopPropagation();
-    return;
-  }
-
-  var post = $x('ancestor-or-self::li[parent::*[@id="posts"]]', target)[0];
-  if (post) {
-    (new Post(post)).reblog();
-    event.preventDefault();
-  }
-}, true);
 
 })();
