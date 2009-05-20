@@ -1,3 +1,10 @@
+// ==UserScript==
+// @name           Rebloglet
+// @namespace      http://www.hatena.ne.jp/cxx/
+// @include        http://www.tumblr.com/*
+// @version        0.2.20090520.0
+// ==/UserScript==
+
 (function(){
 
 if (window.bookmarkletAlreadyExecuted)
