@@ -1,8 +1,16 @@
 // ==UserScript==
 // @name           Rebloglet
 // @namespace      http://www.hatena.ne.jp/cxx/
-// @include        http://www.tumblr.com/*
-// @version        0.2.20090520.0
+// @include        http://www.tumblr.com/iphone*
+// @include        http://www.tumblr.com/dashboard*
+// @include        http://www.tumblr.com/tumblelog/*
+// @include        http://www.tumblr.com/likes*
+// @include        http://www.tumblr.com/twitter*
+// @include        http://www.tumblr.com/popular*
+// @include        http://www.tumblr.com/show/*
+// @include        http://www.tumblr.com/filter/*
+// @exclude        http://www.tumblr.com/tumblelog/*/followers
+// @version        0.2.20090521.0
 // ==/UserScript==
 
 (function(){
