@@ -5,12 +5,14 @@
 // @include        http://www.tumblr.com/dashboard*
 // @include        http://www.tumblr.com/tumblelog/*
 // @include        http://www.tumblr.com/likes*
+// @include        http://www.tumblr.com/drafts*
+// @include        http://www.tumblr.com/queue*
 // @include        http://www.tumblr.com/twitter*
 // @include        http://www.tumblr.com/popular*
 // @include        http://www.tumblr.com/show/*
 // @include        http://www.tumblr.com/filter/*
 // @exclude        http://www.tumblr.com/tumblelog/*/followers
-// @version        0.2.20090521.0
+// @version        0.2.20090521.1
 // ==/UserScript==
 
 (function(){
