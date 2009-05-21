@@ -83,8 +83,9 @@ function doXMLHttpRequest(options) {
   client.send(data);
 }
 
-function reblog(uri, popup) {
-  if (popup && isIPhoneView) {
+function reblog(uri, options) {
+  options = options || {};
+  if (options.popup && isIPhoneView) {
     window.open(uri)
     return;
   }
@@ -99,14 +100,16 @@ function reblog(uri, popup) {
         if (window.confirm('Failed to reblog the post. Retry?'))
           form.submit();
       };
-      if (popup)
+      if (options.private)
+        form.element['post[state]'].value = 'private';
+      if (options.popup)
         form.show();
       else
         form.submit();
     },
     onError: function() {
       if (window.confirm('Failed to reblog the post. Retry?'))
-        reblog(uri, popup);
+        reblog(uri, options);
     }
   });
 }
@@ -513,19 +516,20 @@ ActionDispatcher.actions = [
     name: 'form',
     longName: 'reblog-form',
     action: function() {
-      (new Post(postIterator.getCurrent())).reblog(true);
+      (new Post(postIterator.getCurrent())).reblog({ popup: true });
+    }
+  },
+  {
+    name: 'private',
+    longName: 'reblog as private',
+    action: function() {
+      (new Post(postIterator.getCurrent())).reblog({ private: true });
     }
   },
 /*
   {
     name: 'comment',
     longName: 'reblog with comment',
-    action: function() {
-    }
-  },
-  {
-    name: 'private',
-    longName: 'reblog as private',
     action: function() {
     }
   },
@@ -580,7 +584,7 @@ ActionDispatcher.listenerBasic = function(event) {
 
   if (target.tagName == 'A') {
     if (target.href.indexOf('http://www.tumblr.com/reblog/') == 0)
-      reblog(target.href, true);
+      reblog(target.href, { popup: true });
     else
       window.open(target.href);
     event.preventDefault();
@@ -588,7 +592,7 @@ ActionDispatcher.listenerBasic = function(event) {
   }
 
   if (target.tagName == 'BUTTON' && target.onclick.toString().match(/location\.href\s*=\s*['"]([\/\w]+)['"]/)) { //"
-    reblog(RegExp.$1, true);
+    reblog(RegExp.$1, { popup: true });
     event.stopPropagation();
     return;
   }
@@ -642,12 +646,12 @@ function Post(element) {
   this.element = element;
 }
 
-Post.prototype.reblog = function(popup) {
+Post.prototype.reblog = function(options) {
   var post = this.element;
   var control = isIPhoneView ?
     $(post.id.replace('post', 'post_controls')) : $x('./*[@class="post_controls"]', post)[0];
   if (control && control.innerHTML.match(/(\/reblog\/\w+\/\w+)/))
-    reblog(RegExp.$1, popup);
+    reblog(RegExp.$1, options);
 };
 
 function Preferences() {
