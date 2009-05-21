@@ -816,6 +816,7 @@ styleSheet.add('.form_container input { max-width: 80%; }');
 styleSheet.add('.form_container .wide { width: 100%; }');
 styleSheet.add('.form_container img { max-width: 100%; }');
 styleSheet.add('.form_container div[id=right_column] { background-color: #777; }');
+styleSheet.add('.padding { padding: 0; margin: 0; }');
 
 if (!isIPhoneView) {
   Ajax.PeriodicalUpdater.prototype.onTimerEvent = function() {};
