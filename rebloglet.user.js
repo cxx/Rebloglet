@@ -12,7 +12,7 @@
 // @include        http://www.tumblr.com/show/*
 // @include        http://www.tumblr.com/filter/*
 // @exclude        http://www.tumblr.com/tumblelog/*/followers
-// @version        0.2.20090521.1
+// @version        0.2.20090522.0
 // ==/UserScript==
 
 (function(){
@@ -102,10 +102,7 @@ function reblog(uri, options) {
       };
       if (options.private)
         form.element['post[state]'].value = 'private';
-      if (options.popup)
-        form.show();
-      else
-        form.submit();
+      form[options.popup ? 'show' : 'submit']();
     },
     onError: function() {
       if (window.confirm('Failed to reblog the post. Retry?'))
@@ -113,6 +110,14 @@ function reblog(uri, options) {
     }
   });
 }
+
+function enableScrollEvent(enable) {
+  if (arguments.length == 0)
+    enable = true;
+  window[(enable ? 'remove' : 'add') + 'EventListener']('scroll', enableScrollEvent.listener, true);
+}
+
+enableScrollEvent.listener = function(event) { event.stopPropagation(); };
 
 function StyleSheet() {
   this.style = document.createElement('style');
@@ -558,13 +563,36 @@ ActionDispatcher.actions = [
     action: function() {
     }
   },
+*/
   {
     name: 'choice',
     longName: 'choice',
     action: function() {
+      enableScrollEvent(false);
+      var cover = new Cover(0.5);
+      var div = document.createElement('div');
+      div.className = 'choice_container';
+      div.style.top = window.pageYOffset + 'px';
+      var hide = function() {
+        document.body.removeChild(div);
+        cover.hide();
+        enableScrollEvent(true);
+      };
+      ActionDispatcher.actions.slice(2, -2).forEach(function(action) {
+        var button = document.createElement('div');
+        button.textContent = action.longName;
+        button.className = 'choice_item';
+        button.addEventListener('click', function(event) {
+          action.action();
+          hide();
+        }, false);
+        div.appendChild(button);
+      });
+      cover.show();
+      document.body.appendChild(div);
+      cover.onClick(hide);
     }
   },
-*/
   {
     name: 'nothing',
     longName: 'nothing',
@@ -671,7 +699,7 @@ function Preferences() {
   };
   this.table = {
     enableActions: false,
-    topLeftAction: 'form',
+    topLeftAction: 'choice',
     topRightAction: 'prev',
     bottomLeftAction: 'reblog',
     bottomRightAction: 'next'
@@ -802,6 +830,24 @@ if (window.navigator.userAgent.indexOf('AppleWebKit') != -1 && window.navigator.
   };
 }
 
+var postsNode = $('posts');
+var paginationNode = isIPhoneView ? $('footer') : $('pagination');
+var viewWidth = isIPhoneView ? 320 : 665;
+
+if (!isIPhoneView) {
+  Ajax.PeriodicalUpdater.prototype.onTimerEvent = function() {};
+  document.body.onclick = null;
+
+  [ $('header_container'), $('content_top'), $('right_column'), $('content_bottom'), $('footer') ]
+    .forEach(function(node) { node.parentNode.removeChild(node); });
+
+  $('pagination').style.padding = '0';
+  $('container').style.width = '665px';
+  $('container').style.padding = '0';
+  $('container').style.overflowX = 'hidden';
+  $x('//meta[@name="viewport"]')[0].content = 'width = 665';
+}
+
 var styleSheet = new StyleSheet();
 styleSheet.add('.cover {' + [
   'position: absolute',
@@ -821,23 +867,14 @@ styleSheet.add('.form_container .wide { width: 100%; }');
 styleSheet.add('.form_container img { max-width: 100%; }');
 styleSheet.add('.form_container div[id=right_column] { background-color: #777; }');
 styleSheet.add('.padding { padding: 0; margin: 0; }');
-
-if (!isIPhoneView) {
-  Ajax.PeriodicalUpdater.prototype.onTimerEvent = function() {};
-  document.body.onclick = null;
-
-  [ $('header_container'), $('content_top'), $('right_column'), $('content_bottom'), $('footer') ]
-    .forEach(function(node) { node.parentNode.removeChild(node); });
-
-  $('pagination').style.padding = '0';
-  $('container').style.width = '665px';
-  $('container').style.padding = '0';
-  $('container').style.overflowX = 'hidden';
-  $x('//meta[@name="viewport"]')[0].content = 'width = 665';
-}
-
-var postsNode = $('posts');
-var paginationNode = isIPhoneView ? $('footer') : $('pagination');
+styleSheet.add('.choice_container { position: absolute; left: 0; width: 100%; text-align: center; }');
+styleSheet.add('.choice_item {'
+  + 'width: 80%;'
+  + 'padding: 5% 0;'
+  + 'margin:' + Math.floor(viewWidth * 0.1) + 'px 10%;'
+  + 'font-size:' + Math.floor(viewWidth * 0.1) + 'px;'
+  + 'background-color: #ccc;'
++ '}');
 
 var pager = new Pager();
 var actionDispatcher = new ActionDispatcher();
