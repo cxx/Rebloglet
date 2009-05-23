@@ -343,7 +343,6 @@ Pager.scrollListener = function() {
 };
 
 Pager.prototype.loadNext = function() {
-console.log(this.nextUri);
   var self = this;
   if (this.inProgress || !this.nextUri)
     return false;
@@ -555,10 +554,9 @@ ActionDispatcher.actions = [
   {
     name: 'prev',
     longName: 'scroll to previous',
-    action: function() {
-      var current = postIterator.getCurrent();
-      if (current.offsetTop < window.pageYOffset)
-        window.scrollTo(0, current.offsetTop);
+    action: function(post) {
+      if (post.offsetTop < window.pageYOffset)
+        window.scrollTo(0, post.offsetTop);
       else {
         var prev = postIterator.prev();
         window.scrollTo(0, (prev ? prev.offsetTop : 0));
@@ -568,10 +566,9 @@ ActionDispatcher.actions = [
   {
     name: 'next',
     longName: 'scroll to next',
-    action: function() {
-      var current = postIterator.getCurrent();
-      if (current.offsetTop > window.pageYOffset)
-        window.scrollTo(0, current.offsetTop);
+    action: function(post) {
+      if (post.offsetTop > window.pageYOffset)
+        window.scrollTo(0, post.offsetTop);
       else {
         var next = postIterator.next();
         window.scrollTo(0, (next ? next.offsetTop : document.body.offsetHeight));
@@ -582,22 +579,29 @@ ActionDispatcher.actions = [
   {
     name: 'reblog',
     longName: 'reblog',
-    action: function() {
-      (new Post(postIterator.getCurrent())).reblog();
+    action: function(post) {
+      post.reblog();
     }
   },
   {
     name: 'form',
     longName: 'open reblog-form',
-    action: function() {
-      (new Post(postIterator.getCurrent())).reblog({ popup: true });
+    action: function(post) {
+      post.reblog({ popup: true });
     }
   },
   {
     name: 'private',
     longName: 'reblog as private',
-    action: function() {
-      (new Post(postIterator.getCurrent())).reblog({ private: true });
+    action: function(post) {
+      post.reblog({ private: true });
+    }
+  },
+  {
+    name: 'open',
+    longName: 'open permalink',
+    action: function(post) {
+      window.open(post.getPermalink());
     }
   },
 /*
@@ -621,12 +625,6 @@ ActionDispatcher.actions = [
     }
   },
   {
-    name: 'open',
-    longName: 'open permalink',
-    action: function() {
-    }
-  },
-  {
     name: 'source',
     longName: 'open original',
     action: function() {
@@ -636,7 +634,7 @@ ActionDispatcher.actions = [
   {
     name: 'choice',
     longName: 'choice',
-    action: function() {
+    action: function(post) {
       enableScrollEvent(false);
       var cover = new Cover(0.5);
       var div = document.createElement('div');
@@ -652,7 +650,7 @@ ActionDispatcher.actions = [
         button.textContent = action.longName;
         button.className = 'choice_item';
         button.addEventListener('click', function(event) {
-          action.action();
+          action.action(post);
           hide();
         }, false);
         div.appendChild(button);
@@ -722,7 +720,7 @@ ActionDispatcher.prototype.enableQuad = function(enable) {
       var y = event.pageY - window.pageYOffset;
       var vertical = (y < window.innerHeight / 2) ? 'top' : 'bottom';
       var horizontal = (x < window.innerWidth / 2) ? 'Left' : 'Right';
-      self[vertical + horizontal].action();
+      self[vertical + horizontal].action(new Post(postIterator.getCurrent()));
       event.stopPropagation();
       event.preventDefault();
     });
@@ -749,6 +747,11 @@ Post.prototype.reblog = function(options) {
     $(post.id.replace('post', 'post_controls')) : $x('./*[@class="post_controls"]', post)[0];
   if (control && control.innerHTML.match(/(\/reblog\/\w+\/\w+)/))
     reblog(RegExp.$1, options);
+};
+
+Post.prototype.getPermalink = function() {
+  var permalink = $x('.//a[descendant-or-self::*[@class="permalink"]]', this.element)[0];
+  return permalink ? permalink.href : null;
 };
 
 function Preferences() {
