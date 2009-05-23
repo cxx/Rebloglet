@@ -306,7 +306,7 @@ function Pager() {
   this.paginationNode = isIPhoneView ? $('footer') : $('pagination');
   this.nextLinkNode = $x('./a[contains(text(),"Next page")]', this.paginationNode)[0];
   this.curUri = window.location.pathname;
-  this.step = 1;
+  this.state = 'load';
   if (window.location.hash) {
     var range = document.createRange();
     range.selectNodeContents($('posts'));
@@ -369,9 +369,14 @@ Pager.prototype.loadNext = function() {
         else {
           switch (self.state) {
           case 'load':
-            self.curUri.match(/^(.*\/)(\d+)$/);
-            self.baseUri = RegExp.$1;
-            self.baseNum = Number(RegExp.$2);
+            if (self.curUri.match(/^(.*\/)(\d+)$/)) {
+              self.baseUri = RegExp.$1;
+              self.baseNum = Number(RegExp.$2);
+            }
+            else {
+              self.baseUri = self.curUri + (self.curUri.slice(-1) == '/' ? '' : '/');
+              self.baseNum = 1;
+            }
             self.step = 1;
             self.state = 'find_upper';
           case 'find_upper':
