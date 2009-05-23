@@ -306,6 +306,7 @@ function Pager() {
   this.paginationNode = isIPhoneView ? $('footer') : $('pagination');
   this.nextLinkNode = $x('./a[contains(text(),"Next page")]', this.paginationNode)[0];
   this.curUri = window.location.pathname;
+  this.step = 1;
   if (window.location.hash) {
     var range = document.createRange();
     range.selectNodeContents($('posts'));
@@ -359,23 +360,83 @@ Pager.prototype.loadNext = function() {
         if (newPosts[i].id.match(/(\d+)/) != null && Number(RegExp.$1) >= self.minPostId)
           break;
 
-      if (i == newPosts.length - 1)
-        window.setTimeout(function() { self.loadNext(); }, 0);
+      var cont = false;
+      var append = false;
+      if (i == newPosts.length - 1) {
+        cont = true;
+        if (Number(RegExp.$1) == self.minPostId)
+          self.state = 'load';
+        else {
+          switch (self.state) {
+          case 'load':
+            self.curUri.match(/^(.*\/)(\d+)$/);
+            self.baseUri = RegExp.$1;
+            self.baseNum = Number(RegExp.$2);
+            self.step = 1;
+            self.state = 'find_upper';
+          case 'find_upper':
+            self.lower = self.baseNum + self.step;
+            self.step *= 2;
+            break;
+          case 'find':
+            self.lower = self.baseNum + self.step;
+            if (self.upper - self.lower == 1)
+              self.state = 'load';
+            else
+              self.step = Math.floor((self.lower + self.upper) / 2);
+            break;
+          }
+        }
+      }
+      else if (i == -1) {
+        switch (self.state) {
+        case 'load':
+          append = true;
+          break;
+        case 'find_upper':
+          self.state = 'find';
+        case 'find':
+          self.upper = self.baseNum + self.step;
+          if (self.upper - self.lower == 1) {
+            append = true;
+            self.state = 'load';
+          }
+          else {
+            cont = true;
+            self.step = Math.floor((self.lower + self.upper) / 2);
+          }
+          break;
+        }
+      }
       else {
-        if (i != -1)
-          newPosts.splice(0, i + 1);
+        newPosts.splice(0, i + 1);
+        append = true;
+        self.state = 'load';
+      }
+
+      if (append) {
         self.minPostId = Number(newPosts[newPosts.length - 1].id.match(/\d+/)[0]);
         var fragment = document.createDocumentFragment();
         newPosts.forEach(function(post) { fragment.appendChild(post); });
         postsNode.appendChild(fragment);
         window.setTimeout(function() { self.removePassedPosts(); }, 0);
       }
-      var nextNodeExp = /<a href="([^"]*)"[^>]*>Next page &#8594;<\/a>/; //"
-      var nextUri = (text.match(nextNodeExp) == null) ? null : (self.nextLinkNode.href = RegExp.$1);
-      window.location.hash = encodeURIComponent(self.curUri.match(/(?:http:\/\/www\.tumblr\.com)?(\/.*)/)[1]);
-      self.curUri = self.nextUri;
-      self.nextUri = nextUri;
+
+      if (self.state == 'load') {
+        var nextNodeExp = /<a href="([^"]*)"[^>]*>Next page &#8594;<\/a>/; //"
+        var nextUri = (text.match(nextNodeExp) == null) ? null : (self.nextLinkNode.href = RegExp.$1);
+        window.location.hash = encodeURIComponent(self.curUri.match(/(?:http:\/\/www\.tumblr\.com)?(\/.*)/)[1]);
+        self.curUri = self.nextUri;
+        self.nextUri = nextUri;
+      }
+      else
+        self.nextUri = self.baseUri + (self.baseNum + self.step);
+
+      if (cont)
+        window.setTimeout(function() { self.loadNext(); }, 0);
+
       self.inProgress = false;
+      self.failure = false;
     },
     onError: function() {
       self.inProgress = false;
@@ -485,7 +546,7 @@ function ActionDispatcher() {
 ActionDispatcher.actions = [
   {
     name: 'prev',
-    longName: 'previous post',
+    longName: 'scroll to previous',
     action: function() {
       var current = postIterator.getCurrent();
       if (current.offsetTop < window.pageYOffset)
@@ -498,7 +559,7 @@ ActionDispatcher.actions = [
   },
   {
     name: 'next',
-    longName: 'next post',
+    longName: 'scroll to next',
     action: function() {
       var current = postIterator.getCurrent();
       if (current.offsetTop > window.pageYOffset)
@@ -519,7 +580,7 @@ ActionDispatcher.actions = [
   },
   {
     name: 'form',
-    longName: 'reblog-form',
+    longName: 'open reblog-form',
     action: function() {
       (new Post(postIterator.getCurrent())).reblog({ popup: true });
     }
@@ -547,19 +608,19 @@ ActionDispatcher.actions = [
   // reblog with user defined preset ("Post to", "Publishing options", etc.)
   {
     name: 'preset',
-    longName: 'preset',
+    longName: 'do preset',
     action: function() {
     }
   },
   {
     name: 'open',
-    longName: 'open the post',
+    longName: 'open permalink',
     action: function() {
     }
   },
   {
     name: 'source',
-    longName: 'open the source',
+    longName: 'open original',
     action: function() {
     }
   },
@@ -595,7 +656,7 @@ ActionDispatcher.actions = [
   },
   {
     name: 'nothing',
-    longName: 'nothing',
+    longName: 'do nothing',
     action: function() {}
   }
 ];
