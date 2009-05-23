@@ -555,8 +555,9 @@ ActionDispatcher.actions = [
     name: 'prev',
     longName: 'scroll to previous',
     action: function(post) {
-      if (post.offsetTop < window.pageYOffset)
-        window.scrollTo(0, post.offsetTop);
+      var current = postIterator.getCurrent();
+      if (current.offsetTop < window.pageYOffset)
+        window.scrollTo(0, current.offsetTop);
       else {
         var prev = postIterator.prev();
         window.scrollTo(0, (prev ? prev.offsetTop : 0));
@@ -567,8 +568,9 @@ ActionDispatcher.actions = [
     name: 'next',
     longName: 'scroll to next',
     action: function(post) {
-      if (post.offsetTop > window.pageYOffset)
-        window.scrollTo(0, post.offsetTop);
+      var current = postIterator.getCurrent();
+      if (current.offsetTop > window.pageYOffset)
+        window.scrollTo(0, current.offsetTop);
       else {
         var next = postIterator.next();
         window.scrollTo(0, (next ? next.offsetTop : document.body.offsetHeight));
