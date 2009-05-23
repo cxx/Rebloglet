@@ -343,6 +343,7 @@ Pager.scrollListener = function() {
 };
 
 Pager.prototype.loadNext = function() {
+console.log(this.nextUri);
   var self = this;
   if (this.inProgress || !this.nextUri)
     return false;
@@ -377,18 +378,20 @@ Pager.prototype.loadNext = function() {
               self.baseUri = self.curUri + (self.curUri.slice(-1) == '/' ? '' : '/');
               self.baseNum = 1;
             }
+            self.nextNum = self.baseNum + 1;
             self.step = 1;
             self.state = 'find_upper';
           case 'find_upper':
-            self.lower = self.baseNum + self.step;
+            self.lower = self.nextNum;
             self.step *= 2;
+            self.nextNum = self.baseNum + self.step;
             break;
           case 'find':
-            self.lower = self.baseNum + self.step;
+            self.lower = self.nextNum;
             if (self.upper - self.lower == 1)
               self.state = 'load';
             else
-              self.step = Math.floor((self.lower + self.upper) / 2);
+              self.nextNum = Math.floor((self.lower + self.upper) / 2);
             break;
           }
         }
@@ -401,14 +404,14 @@ Pager.prototype.loadNext = function() {
         case 'find_upper':
           self.state = 'find';
         case 'find':
-          self.upper = self.baseNum + self.step;
+          self.upper = self.nextNum;
           if (self.upper - self.lower == 1) {
             append = true;
             self.state = 'load';
           }
           else {
             cont = true;
-            self.step = Math.floor((self.lower + self.upper) / 2);
+            self.nextNum = Math.floor((self.lower + self.upper) / 2);
           }
           break;
         }
@@ -435,7 +438,7 @@ Pager.prototype.loadNext = function() {
         self.nextUri = nextUri;
       }
       else
-        self.nextUri = self.baseUri + (self.baseNum + self.step);
+        self.nextUri = self.baseUri + self.nextNum;
 
       if (cont)
         window.setTimeout(function() { self.loadNext(); }, 0);
