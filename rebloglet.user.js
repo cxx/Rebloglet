@@ -307,6 +307,7 @@ function Pager() {
   this.nextLinkNode = $x('./a[contains(text(),"Next page")]', this.paginationNode)[0];
   this.curUri = window.location.pathname;
   this.state = 'load';
+  this.listeners = [];
   if (window.location.hash) {
     var range = document.createRange();
     range.selectNodeContents($('posts'));
@@ -357,7 +358,7 @@ Pager.prototype.loadNext = function() {
       var postsNode = $('posts');
       var newPosts = $x('./*', div);
       for (var i = newPosts.length - 1; i >= 0; i--)
-        if (newPosts[i].id.match(/(\d+)/) != null && Number(RegExp.$1) >= self.minPostId)
+        if (newPosts[i].id.match(/(\d+)/) && Number(RegExp.$1) >= self.minPostId)
           break;
 
       var cont = false;
@@ -426,6 +427,7 @@ Pager.prototype.loadNext = function() {
         var fragment = document.createDocumentFragment();
         newPosts.forEach(function(post) { fragment.appendChild(post); });
         postsNode.appendChild(fragment);
+        self.listeners.forEach(function(listener){ listener(newPosts, self.minPostId); });
         window.setTimeout(function() { self.removePassedPosts(); }, 0);
       }
 
@@ -474,6 +476,10 @@ Pager.prototype.removePassedPosts = function() {
     range.deleteContents();
     range.detach();
   }
+};
+
+Pager.prototype.addListener = function(listener) {
+  this.listeners.push(listener);
 };
 
 Pager.prototype.enableAuto = function() {
@@ -586,17 +592,17 @@ ActionDispatcher.actions = [
     }
   },
   {
-    name: 'form',
-    longName: 'open reblog-form',
-    action: function(post) {
-      post.reblog({ popup: true });
-    }
-  },
-  {
     name: 'private',
     longName: 'reblog as private',
     action: function(post) {
       post.reblog({ private: true });
+    }
+  },
+  {
+    name: 'form',
+    longName: 'open reblog-form',
+    action: function(post) {
+      post.reblog({ popup: true });
     }
   },
   {
@@ -776,7 +782,8 @@ function Preferences() {
     topLeftAction: 'choice',
     topRightAction: 'prev',
     bottomLeftAction: 'reblog',
-    bottomRightAction: 'next'
+    bottomRightAction: 'next',
+    history: '[{ id: 0, time: 0 }]'
   };
   this.listeners = [];
   if (window.openDatabase) {
@@ -970,6 +977,44 @@ if (isIPhoneView) {
     });
   });
   prefs.addListener(function() { postIterator.refresh(); });
+  prefs.addListener(function() {
+    var history = eval(prefs.get('history'));
+    var first = $x('id("posts")/*[contains(@class,"post")]')[0];
+    if (first) {
+      var id = Number(first.id.replace('post_', ''));
+      if (id >= history[0].id) {
+        var appended = [{ id: id, time: (new Date).valueOf() }].concat(history).slice(0, 5);
+        prefs.set(
+          'history',
+          '[' + appended.map(function(i) { return '{ "id": ' + i.id + ', "time": ' + i.time + ' }'; }).join() + ']'
+        );
+        prefs.save();
+      }
+      else {
+        while (history.length > 0 && history[0].id > id)
+          history.shift();
+      }
+    }
+    pager.addListener(function(posts, minId) {
+      if (history.length > 0 && history[0].id >= minId) {
+        for (var i = 0; i < posts.length; i++) {
+          if (posts[i].id.match(/(\d+)/) && Number(RegExp.$1) <= history[0].id) {
+            var li = document.createElement('li');
+            li.className = 'post';
+            li.style.padding = '0';
+            var div = document.createElement('div');
+            div.textContent = new Date(history[0].time);
+            div.style.backgroundColor = '#ff0';
+            li.appendChild(div);
+            postsNode.insertBefore(li, posts[i]);
+            history.shift();
+            if (history.length == 0)
+              break;
+          }
+        }
+      }
+    });
+  });
 }
 
 })();
