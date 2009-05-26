@@ -114,7 +114,7 @@ function reblog(uri, options) {
 function enableScrollEvent(enable) {
   if (arguments.length == 0)
     enable = true;
-  window[(enable ? 'remove' : 'add') + 'EventListener']('scroll', enableScrollEvent.listener, true);
+  window[enable ? 'removeEventListener' : 'addEventListener']('scroll', enableScrollEvent.listener, true);
 }
 
 enableScrollEvent.listener = function(event) { event.stopPropagation(); };
@@ -612,33 +612,20 @@ ActionDispatcher.actions = [
       window.open(post.getPermalink());
     }
   },
-/*
   {
-    name: 'comment',
-    longName: 'reblog with comment',
-    action: function() {
+    name: 'source',
+    longName: 'open original',
+    action: function(post) {
+      window.open(post.getSourceLink());
     }
   },
   {
     name: 'like',
     longName: 'like',
-    action: function() {
+    action: function(post) {
+      post.like();
     }
   },
-  // reblog with user defined preset ("Post to", "Publishing options", etc.)
-  {
-    name: 'preset',
-    longName: 'do preset',
-    action: function() {
-    }
-  },
-  {
-    name: 'source',
-    longName: 'open original',
-    action: function() {
-    }
-  },
-*/
   {
     name: 'choice',
     longName: 'choice',
@@ -757,9 +744,40 @@ Post.prototype.reblog = function(options) {
     reblog(RegExp.$1, options);
 };
 
+Post.prototype.like = function() {
+  var post = this.element;
+  var likeText = $(post.id.replace('post', 'post_like_text'));
+  if (likeText)
+    likeText.parentNode.onclick();
+};
+
 Post.prototype.getPermalink = function() {
   var permalink = $x('.//a[descendant-or-self::*[@class="permalink"]]', this.element)[0];
   return permalink ? permalink.href : null;
+};
+
+Post.prototype.getSourceLink = function() {
+  var body = $x('./div[starts-with(@class,"post ")]', this.element)[0];
+  if (!body)
+    return this.getPermalink();
+  var type = body.className.match(/(\w+)_post/)[1];
+  var link;
+  switch (type) {
+  case 'photo':
+  case 'video':
+    link = $x('((.//div[@class="caption"]//blockquote[./a])[last()])/a', body)[0] || $x('.//div[@class="caption"]//a', body)[0];
+    break;
+  case 'quote':
+    link = $x('.//div[@class="source"]/a', body)[0];
+    break;
+  case 'link':
+    link = $x('.//div[@class="link"]/a', body)[0];
+    break;
+  case 'audio':
+    link = $x('.//div[@class="audio"]/a', body)[0];
+    break;
+  };
+  return link ? link.href : this.getPermalink();
 };
 
 function Preferences() {
@@ -952,7 +970,7 @@ styleSheet.add('.choice_container { position: absolute; left: 0; width: 100%; te
 styleSheet.add('.choice_item {'
   + 'width: 80%;'
   + 'padding: 5% 0;'
-  + 'margin:' + Math.floor(viewWidth * 0.1) + 'px 10%;'
+  + 'margin:' + Math.floor(viewWidth * 0.05) + 'px 10%;'
   + 'font-size:' + Math.floor(viewWidth * 0.1) + 'px;'
   + 'background-color: #ccc;'
 + '}');
