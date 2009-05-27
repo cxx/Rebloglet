@@ -732,12 +732,15 @@ ActionDispatcher.prototype.setKeys = function(keys) {
   var scroll = 100;
   if (!this.keys) {
     window.addEventListener('keypress', function(event) {
+      var tag = event.target.tagName;
+      if (tag == 'INPUT' || tag == 'TEXTAREA')
+        return;
       var key = String.fromCharCode(event.keyCode);
       if (!event.shiftKey)
         key = key.toLowerCase();
       if (key == ' ') {
-        event.preventDefault();
         window.scrollBy(0, event.shiftKey ? -scroll : scroll);
+        event.preventDefault();
       }
       if (key in self.keys)
         self.keys[key].action(new Post(postIterator.getCurrent()));
