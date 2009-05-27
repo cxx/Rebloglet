@@ -727,6 +727,25 @@ ActionDispatcher.prototype.set = function(topLeft, topRight, bottomLeft, bottomR
   this.bottomRight = ActionDispatcher.actions[bottomRight];
 };
 
+ActionDispatcher.prototype.setKeys = function(keys) {
+  var self = this;
+  var scroll = 100;
+  if (!this.keys) {
+    window.addEventListener('keypress', function(event) {
+      var key = String.fromCharCode(event.keyCode);
+      if (!event.shiftKey)
+        key = key.toLowerCase();
+      if (key == ' ') {
+        event.preventDefault();
+        window.scrollBy(0, event.shiftKey ? -scroll : scroll);
+      }
+      if (key in self.keys)
+        self.keys[key].action(new Post(postIterator.getCurrent()));
+    }, false);
+  }
+  this.keys = keys;
+};
+
 ActionDispatcher.prototype.enableQuad = function(enable) {
   if (arguments.length == 0)
     enable = true;
@@ -791,10 +810,10 @@ Post.prototype.getSourceLink = function() {
   switch (type) {
   case 'photo':
   case 'video':
-    link = $x('((.//div[@class="caption"]//blockquote[./a])[last()])/a', body)[0] || $x('.//div[@class="caption"]//a', body)[0];
+    link = $x('((.//div[@class="caption"]//blockquote[.//a])[last()])//a', body)[0] || $x('.//div[@class="caption"]//a', body)[0];
     break;
   case 'quote':
-    link = $x('.//div[@class="source"]/a', body)[0];
+    link = $x('.//div[@class="source"]//a', body)[0];
     break;
   case 'link':
     link = $x('.//div[@class="link"]/a', body)[0];
@@ -827,6 +846,15 @@ function Preferences() {
     topRightAction: 'prev',
     bottomLeftAction: 'reblog',
     bottomRightAction: 'next',
+    keyPrev: 'k',
+    keyNext: 'j',
+    keyReblog: 't',
+    keyComment: 'b',
+    keyPrivate: 'y',
+    keyForm: 'T',
+    keyOpen: 'v',
+    keySource: 'V',
+    keyLike: 'l',
     history: '[{ id: 0, time: 0 }]'
   };
   this.listeners = [];
@@ -849,11 +877,11 @@ function Preferences() {
       }, addButton, addButton);
     }
     catch (e) {
-      addButton();
+      window.setTimeout(addButton, 0);
     }
   }
   else
-    addButton();
+    window.setTimeout(addButton, 0);
 }
 
 Preferences.prototype.get = function(key, defaultValue) {
@@ -918,11 +946,13 @@ Preferences.prototype.showDialog = function() {
     + '</fieldset>'
     + '<fieldset>'
     +   '<table>'
-    +     '<tr><th>action</th><th>in choice</th></tr>'
-    +     ActionDispatcher.actions.slice(2, -2).map(function(action) {
-            var name = 'choice' + action.name.replace(/^./, function(c) { return c.toUpperCase(); });
-            return '<tr><td><label>' + action.longName + '</label></td><td><input type="checkbox" name="' + name + '" value="' + name + '"'
-              + (self.get(name, 'true') == 'true' ? ' checked="checked"' : '') + '/></td></tr>';
+    +     '<tr><th>action</th><th>in choice</th>' + (hasKeyboard ? '<th>key</th>' : '') + '</tr>'
+    +     ActionDispatcher.actions.slice(hasKeyboard ? 0 : 2, -2).map(function(action) {
+            var capi = action.name.replace(/^./, function(c) { return c.toUpperCase(); });
+            return '<tr><td><label>' + action.longName + '</label></td>'
+              + ((action.name != 'prev' && action.name != 'next') ? ('<td><input type="checkbox" name="choice' + capi + '" value="choice' + capi + '"'
+              + (self.get(name, 'true') == 'true' ? ' checked="checked"' : '') + '/></td>') : '<td></td>')
+              + (hasKeyboard ? ('<td><input type="text" name="key' + capi + '" value="' + self.get('key' + capi) + '"/></td>') : '') + '</tr>';
           }).join('')
     +   '</table>'
     + '</fieldset>'
@@ -955,7 +985,11 @@ Preferences.prototype.showDialog = function() {
   document.body.appendChild(div);
 };
 
-if (window.navigator.userAgent.indexOf('AppleWebKit') != -1 && window.navigator.userAgent.indexOf('Mobile') != -1) {
+var hasKeyboard = true;
+
+if (window.navigator.userAgent.indexOf('AppleWebKit') != -1
+  && window.navigator.userAgent.indexOf('Mobile') != -1
+  && window.navigator.userAgent.indexOf('Iris') == -1) {
   window.scrollTo_ = window.scrollTo;
   window.scrollTo = function(x, y) {
     window.scrollTo_(x, y);
@@ -963,6 +997,7 @@ if (window.navigator.userAgent.indexOf('AppleWebKit') != -1 && window.navigator.
     event.initEvent('scroll', true, false);
     document.dispatchEvent(event);
   };
+  hasKeyboard = false;
 }
 
 var postsNode = $('posts');
@@ -1018,7 +1053,7 @@ postIterator.addListener(function(current) {
   if (actionDispatcher.current)
     actionDispatcher.current.style.backgroundColor = '#fff';
   actionDispatcher.current = current;
-  if (actionDispatcher.quadEnabled && actionDispatcher.current)
+  if ((actionDispatcher.quadEnabled || hasKeyboard) && actionDispatcher.current)
     actionDispatcher.current.style.backgroundColor = '#cfc';
 });
 
@@ -1029,6 +1064,11 @@ if (isIPhoneView) {
     [ 'topLeft', 'topRight', 'bottomLeft', 'bottomRight' ].forEach(function(section) {
       actionDispatcher[section] = ActionDispatcher.actions[prefs.get(section + 'Action')];
     });
+    var keys = {};
+    ActionDispatcher.actions.slice(0, -2).forEach(function(action) {
+      keys[prefs.get('key' + action.name.replace(/^./, function(c) { return c.toUpperCase(); }))] = action;
+    });
+    actionDispatcher.setKeys(keys);
   });
   prefs.addListener(function() { postIterator.refresh(); });
   var history;
