@@ -37,6 +37,10 @@ function $x(xpath, context) {
   return retval;
 }
 
+function escapeSpecialChars(s) {
+  return s.replace('&', '&amp;').replace('"', '&quot;').replace("'", '&apos;').replace('<', '&lt;').replace('>', '&gt;');
+}
+
 function doXMLHttpRequest(options) {
   var client = new XMLHttpRequest();
   if (typeof options.data == 'string') {
@@ -100,6 +104,17 @@ function reblog(uri, options) {
         if (window.confirm('Failed to reblog the post. Retry?'))
           form.submit();
       };
+      if (options.comment) {
+        var element = form.element;
+        var type = element['post[type]'].value;
+        var textarea = element[type == 'link' ? 'post[three]' : 'post[two]'];
+        if (type == 'conversation')
+          textarea.value = textarea.value + '\n' + options.comment;
+        else if (textarea.value.match(/<p><\/p>$/))
+          textarea.value = textarea.value.replace(/<p><\/p>$/, '<p>' + options.comment + '</p>');
+        else
+          textarea.value = textarea.value + '\n<p>' + options.comment + '</p>';
+      }
       if (options.private)
         form.element['post[state]'].value = 'private';
       form[options.popup ? 'show' : 'submit']();
@@ -592,6 +607,15 @@ ActionDispatcher.actions = [
     }
   },
   {
+    name: 'comment',
+    longName: 'reblog with comment',
+    action: function(post) {
+      var comment = window.prompt('input your comment', '');
+      if (comment !== null)
+        post.reblog({ comment: escapeSpecialChars(comment) });
+    }
+  },
+  {
     name: 'private',
     longName: 'reblog as private',
     action: function(post) {
@@ -980,9 +1004,9 @@ styleSheet.add('.form_container div[id=right_column] { background-color: #777; }
 styleSheet.add('.padding { padding: 0; margin: 0; }');
 styleSheet.add('.choice_container { position: absolute; left: 0; width: 100%; text-align: center; }');
 styleSheet.add('.choice_item {'
-  + 'width: 80%;'
+  + 'width: 100%;'
   + 'padding: 5% 0;'
-  + 'margin:' + Math.floor(viewWidth * 0.05) + 'px 10%;'
+  + 'margin:' + Math.floor(viewWidth * 0.05) + 'px 0;'
   + 'font-size:' + Math.floor(viewWidth * 0.1) + 'px;'
   + 'background-color: #ccc;'
 + '}');
