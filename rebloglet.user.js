@@ -1007,8 +1007,10 @@ if (isIPhoneView) {
     });
   });
   prefs.addListener(function() { postIterator.refresh(); });
+  var history;
   prefs.addListener(function() {
-    var history = eval(prefs.get('history'));
+    if (history) return;
+    history = eval(prefs.get('history'));
     var first = $x('id("posts")/*[contains(@class,"post")]')[0];
     if (first) {
       var id = Number(first.id.replace('post_', ''));
