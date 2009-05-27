@@ -553,7 +553,7 @@ PostIterator.prototype.refresh = function() {
     return;
   var posts = $x('id("posts")/*[contains(@class,"post")][not(contains(@class,"controls"))]');
   for (var i = 0; i < posts.length; i++)
-    if (posts[i].offsetTop >= window.pageYOffset
+    if (posts[i].offsetTop >= window.pageYOffset - 5
       || posts[i].offsetTop + posts[i].offsetHeight >= window.pageYOffset + window.innerHeight / 2)
       break;
   this.setCurrent(posts[i]);
@@ -577,7 +577,7 @@ ActionDispatcher.actions = [
     longName: 'scroll to previous',
     action: function(post) {
       var current = postIterator.getCurrent();
-      if (current.offsetTop < window.pageYOffset)
+      if (current.offsetTop < window.pageYOffset - 5)
         window.scrollTo(0, current.offsetTop);
       else {
         var prev = postIterator.prev();
@@ -590,7 +590,7 @@ ActionDispatcher.actions = [
     longName: 'scroll to next',
     action: function(post) {
       var current = postIterator.getCurrent();
-      if (current.offsetTop > window.pageYOffset)
+      if (current.offsetTop > window.pageYOffset + 5)
         window.scrollTo(0, current.offsetTop);
       else {
         var next = postIterator.next();
@@ -954,7 +954,7 @@ Preferences.prototype.showDialog = function() {
             var capi = action.name.replace(/^./, function(c) { return c.toUpperCase(); });
             return '<tr><td><label>' + action.longName + '</label></td>'
               + ((action.name != 'prev' && action.name != 'next') ? ('<td><input type="checkbox" name="choice' + capi + '" value="choice' + capi + '"'
-              + (self.get(name, 'true') == 'true' ? ' checked="checked"' : '') + '/></td>') : '<td></td>')
+              + (self.get('choice' + capi, 'true') == 'true' ? ' checked="checked"' : '') + '/></td>') : '<td></td>')
               + (hasKeyboard ? ('<td><input type="text" name="key' + capi + '" value="' + self.get('key' + capi) + '"/></td>') : '') + '</tr>';
           }).join('')
     +   '</table>'
@@ -1043,9 +1043,10 @@ styleSheet.add('.padding { padding: 0; margin: 0; }');
 styleSheet.add('.choice_container { position: absolute; left: 0; width: 100%; text-align: center; }');
 styleSheet.add('.choice_item {'
   + 'width: 100%;'
-  + 'padding: 5% 0;'
+  + 'padding: ' + (isIPhoneView ? '16' : '8') + 'px 0;'
   + 'margin:' + Math.floor(viewWidth * 0.05) + 'px 0;'
   + 'font-size:' + Math.floor(viewWidth * 0.1) + 'px;'
+  + 'color: #000;'
   + 'background-color: #ccc;'
 + '}');
 
@@ -1060,60 +1061,58 @@ postIterator.addListener(function(current) {
     actionDispatcher.current.style.backgroundColor = '#cfc';
 });
 
-if (isIPhoneView) {
-  var prefs = new Preferences();
-  prefs.addListener(function() {
-    actionDispatcher.enableQuad(prefs.get('enableActions') == 'true');
-    [ 'topLeft', 'topRight', 'bottomLeft', 'bottomRight' ].forEach(function(section) {
-      actionDispatcher[section] = ActionDispatcher.actions[prefs.get(section + 'Action')];
-    });
-    var keys = {};
-    ActionDispatcher.actions.slice(0, -2).forEach(function(action) {
-      keys[prefs.get('key' + action.name.replace(/^./, function(c) { return c.toUpperCase(); }))] = action;
-    });
-    actionDispatcher.setKeys(keys);
+var prefs = new Preferences();
+prefs.addListener(function() {
+  actionDispatcher.enableQuad(prefs.get('enableActions') == 'true');
+  [ 'topLeft', 'topRight', 'bottomLeft', 'bottomRight' ].forEach(function(section) {
+    actionDispatcher[section] = ActionDispatcher.actions[prefs.get(section + 'Action')];
   });
-  prefs.addListener(function() { postIterator.refresh(); });
-  var history;
-  prefs.addListener(function() {
-    if (history) return;
-    history = eval(prefs.get('history'));
-    var first = $x('id("posts")/*[contains(@class,"post")]')[0];
-    if (first) {
-      var id = Number(first.id.replace('post_', ''));
-      if (id >= history[0].id) {
-        var appended = [{ id: id, time: (new Date).valueOf() }].concat(history).slice(0, 5);
-        prefs.set(
-          'history',
-          '[' + appended.map(function(i) { return '{ "id": ' + i.id + ', "time": ' + i.time + ' }'; }).join() + ']'
-        );
-        prefs.save();
-      }
-      else {
-        while (history.length > 0 && history[0].id > id)
-          history.shift();
-      }
+  var keys = {};
+  ActionDispatcher.actions.slice(0, -2).forEach(function(action) {
+    keys[prefs.get('key' + action.name.replace(/^./, function(c) { return c.toUpperCase(); }))] = action;
+  });
+  actionDispatcher.setKeys(keys);
+});
+prefs.addListener(function() { postIterator.refresh(); });
+var history;
+prefs.addListener(function() {
+  if (history) return;
+  history = eval(prefs.get('history'));
+  var first = $x('id("posts")/*[contains(@class,"post")]')[0];
+  if (first) {
+    var id = Number(first.id.replace('post_', ''));
+    if (id >= history[0].id) {
+      var appended = [{ id: id, time: (new Date).valueOf() }].concat(history).slice(0, 5);
+      prefs.set(
+        'history',
+        '[' + appended.map(function(i) { return '{ "id": ' + i.id + ', "time": ' + i.time + ' }'; }).join() + ']'
+      );
+      prefs.save();
     }
-    pager.addListener(function(posts, minId) {
-      if (history.length > 0 && history[0].id >= minId) {
-        for (var i = 0; i < posts.length; i++) {
-          if (posts[i].id.match(/(\d+)/) && Number(RegExp.$1) <= history[0].id) {
-            var li = document.createElement('li');
-            li.className = 'post';
-            li.style.padding = '0';
-            var div = document.createElement('div');
-            div.textContent = new Date(history[0].time);
-            div.style.backgroundColor = '#ff0';
-            li.appendChild(div);
-            postsNode.insertBefore(li, posts[i]);
-            history.shift();
-            if (history.length == 0)
-              break;
-          }
+    else {
+      while (history.length > 0 && history[0].id > id)
+        history.shift();
+    }
+  }
+  pager.addListener(function(posts, minId) {
+    if (history.length > 0 && history[0].id >= minId) {
+      for (var i = 0; i < posts.length; i++) {
+        if (posts[i].id.match(/(\d+)/) && Number(RegExp.$1) <= history[0].id) {
+          var li = document.createElement('li');
+          li.className = 'post';
+          li.style.padding = '0';
+          var div = document.createElement('div');
+          div.textContent = new Date(history[0].time);
+          div.style.backgroundColor = '#ff0';
+          li.appendChild(div);
+          postsNode.insertBefore(li, posts[i]);
+          history.shift();
+          if (history.length == 0)
+            break;
         }
       }
-    });
+    }
   });
-}
+});
 
 })();
