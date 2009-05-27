@@ -641,14 +641,16 @@ ActionDispatcher.actions = [
         enableScrollEvent(true);
       };
       ActionDispatcher.actions.slice(2, -2).forEach(function(action) {
-        var button = document.createElement('div');
-        button.textContent = action.longName;
-        button.className = 'choice_item';
-        button.addEventListener('click', function(event) {
-          action.action(post);
-          hide();
-        }, false);
-        div.appendChild(button);
+        if (prefs.get('choice' + action.name.replace(/^./, function(c) { return c.toUpperCase(); }), 'true') == 'true') {
+          var button = document.createElement('div');
+          button.textContent = action.longName;
+          button.className = 'choice_item';
+          button.addEventListener('click', function(event) {
+            action.action(post);
+            hide();
+          }, false);
+          div.appendChild(button);
+        }
       });
       cover.show();
       document.body.appendChild(div);
@@ -876,7 +878,7 @@ Preferences.prototype.showDialog = function() {
   div.innerHTML =
     '<form action="#">'
     + '<fieldset>'
-    +   '<input type="checkbox" name="enableActions" value="enable_actions"' + (self.get('enableActions') == 'true' ? ' checked="checked"' : '') + '/>'
+    +   '<input type="checkbox" name="enableActions" value="enableActions"' + (self.get('enableActions') == 'true' ? ' checked="checked"' : '') + '/>'
     +   '<label for="enableActions">execute action when each section is tapped</label>'
     +   '<table>'
     +     [ 'top left', 'top right', 'bottom left', 'bottom right' ].map(function(section) {
@@ -887,6 +889,16 @@ Preferences.prototype.showDialog = function() {
                     + (self.get(name) == action.name ? ' selected="selected"' : '') + '>' + action.longName + '</option>';
                 }).join('')
               + '</select></td></tr>';
+          }).join('')
+    +   '</table>'
+    + '</fieldset>'
+    + '<fieldset>'
+    +   '<table>'
+    +     '<tr><th>action</th><th>in choice</th></tr>'
+    +     ActionDispatcher.actions.slice(2, -2).map(function(action) {
+            var name = 'choice' + action.name.replace(/^./, function(c) { return c.toUpperCase(); });
+            return '<tr><td><label>' + action.longName + '</label></td><td><input type="checkbox" name="' + name + '" value="' + name + '"'
+              + (self.get(name, 'true') == 'true' ? ' checked="checked"' : '') + '/></td></tr>';
           }).join('')
     +   '</table>'
     + '</fieldset>'
