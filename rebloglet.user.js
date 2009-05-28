@@ -1050,7 +1050,7 @@ styleSheet.add('.form_container {' + [
   'width: 100%',
   'background-color: #fff',
 '}'].join(';'));
-styleSheet.add('.form_container input { width: 80%; min-width: 80%; max-width: 80%; }');
+styleSheet.add('.form_container input { width: auto; min-width: 0; max-width: 80%; }');
 styleSheet.add('.form_container .wide { width: 100%; min-width: 100%; max-width: 100%; }');
 styleSheet.add('.form_container img { max-width: 100%; }');
 styleSheet.add('.form_container div[id=right_column] { background-color: #777; }');
