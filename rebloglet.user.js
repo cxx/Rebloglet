@@ -447,7 +447,7 @@ Pager.prototype.loadNext = function() {
       }
 
       if (self.state == 'load') {
-        var nextNodeExp = /<a href="([^"]*)"[^>]*>Next page &#8594;<\/a>/; //"
+        var nextNodeExp = /<a [^>]*href="([^"]*)"[^>]*>Next page &#8594;<\/a>/; //"
         var nextUri = (text.match(nextNodeExp) == null) ? null : (self.nextLinkNode.href = RegExp.$1);
         window.location.hash = encodeURIComponent(self.curUri.match(/(?:http:\/\/www\.tumblr\.com)?(\/.*)/)[1]);
         self.curUri = self.nextUri;
