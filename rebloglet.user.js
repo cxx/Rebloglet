@@ -12,7 +12,7 @@
 // @include        http://www.tumblr.com/show/*
 // @include        http://www.tumblr.com/filter/*
 // @exclude        http://www.tumblr.com/tumblelog/*/followers
-// @version        0.2.20090522.0
+// @version        0.2.20090528.0
 // ==/UserScript==
 
 (function(){
@@ -794,9 +794,13 @@ Post.prototype.reblog = function(options) {
 
 Post.prototype.like = function() {
   var post = this.element;
-  var likeText = $(post.id.replace('post', 'post_like_text'));
-  if (likeText)
-    likeText.parentNode.onclick();
+  if (isIPhoneView) {
+    var likeText = $(post.id.replace('post', 'post_like_text'));
+    if (likeText)
+      likeText.parentNode.onclick();
+  }
+  else
+    submit_like(Number(post.id.replace('post', '')), false);
 };
 
 Post.prototype.getPermalink = function() {
@@ -805,10 +809,21 @@ Post.prototype.getPermalink = function() {
 };
 
 Post.prototype.getSourceLink = function() {
-  var body = $x('./div[starts-with(@class,"post ")]', this.element)[0];
-  if (!body)
-    return this.getPermalink();
-  var type = body.className.match(/(\w+)_post/)[1];
+  var post = this.element;
+  var body;
+  var type;
+  if (isIPhoneView) {
+    body = $x('./div[starts-with(@class,"post ")]', post)[0];
+    if (!body)
+      return this.getPermalink();
+    type = body.className.match(/(\w+)_post/)[1];
+  }
+  else {
+    body = post;
+    if (!post.className.match(/(regular|photo|quote|link|conversation|audio|video)/))
+      return this.getPermalink();
+    type = RegExp.$1;
+  }
   var link;
   switch (type) {
   case 'photo':
@@ -816,13 +831,13 @@ Post.prototype.getSourceLink = function() {
     link = $x('((.//div[@class="caption"]//blockquote[.//a])[last()])//a', body)[0] || $x('.//div[@class="caption"]//a', body)[0];
     break;
   case 'quote':
-    link = $x('.//div[@class="source"]//a', body)[0];
+    link = $x('(.//div[@class="source"] | .//td[@class="quote_source"])//a', body)[0];
     break;
   case 'link':
-    link = $x('.//div[@class="link"]/a', body)[0];
+    link = $x('.//div[@class="link" or @class="post_title"]/a', body)[0];
     break;
   case 'audio':
-    link = $x('.//div[@class="audio"]/a', body)[0];
+    link = $x('.//div[@class="audio"]/a | .//a[text()="Listen"]', body)[0];
     break;
   };
   return link ? link.href : this.getPermalink();
