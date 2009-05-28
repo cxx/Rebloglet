@@ -595,8 +595,9 @@ ActionDispatcher.actions = [
       else {
         var next = postIterator.next();
         window.scrollTo(0, (next ? next.offsetTop : document.body.offsetHeight));
+        if (!next)
+          pager.loadNext();
       }
-      Pager.scrollListener();
     }
   },
   {
