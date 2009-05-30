@@ -144,42 +144,25 @@ StyleSheet.prototype.add = function(rule) {
   this.style.sheet.insertRule(rule, 0);
 };
 
-function Cover(opacity) {
-  this.element = document.createElement('div');
-  this.element.className = 'cover';
-  this.element.style.opacity = opacity;
-  this.clickListener = null;
-}
-
-Cover.prototype.show = function() {
+function Dialog(foreground) {
   var self = this;
-  this.refresh();
-  this.scrollListener = function(event) {
-    self.refresh();
-  };
-  document.body.appendChild(this.element);
-  window.addEventListener('scroll', this.scrollListener, false);
-};
-
-Cover.prototype.hide = function() {
-  window.removeEventListener('scroll', this.scrollListener, false);
-  document.body.removeChild(this.element);
-};
-
-Cover.prototype.refresh = function() {
-  this.element.style.top = postsNode.offsetTop + 'px';
-  this.element.style.height = (paginationNode.offsetTop + paginationNode.offsetHeight - postsNode.offsetTop) + 'px';
+  this.background = document.createElement('div');
+  this.background.className = 'background';
+  this.background.addEventListener('click', function() { self.hide(); }, false);
+  this.foreground = foreground;
 }
 
-Cover.prototype.onClick = function(listener) {
-  if (this.clickListener) {
-    this.element.removeEventListener('click', this.clickListener, false);
-    this.clickListener = null;
-  }
-  if (typeof listener == 'function') {
-    this.element.addEventListener('click', listener, false);
-    this.clickListener = listener;
-  }
+Dialog.prototype.show = function() {
+  enableScrollEvent(false);
+  this.background.style.height = document.body.offsetHeight + 'px';
+  document.body.appendChild(this.background);
+  document.body.appendChild(this.foreground);
+};
+
+Dialog.prototype.hide = function() {
+  document.body.removeChild(this.foreground);
+  document.body.removeChild(this.background);
+  enableScrollEvent(true);
 };
 
 function Form(element) {
@@ -278,7 +261,7 @@ Form.prototype.show = function() {
   $x('.//div[@id="left_column"]', this.element)[0].style.width = '400px';
   if (!this.submitListener) {
     this.submitListener = function(event) {
-      self.hide();
+      self.dialog.hide();
       self.submit();
       event.preventDefault();
     };
@@ -288,24 +271,11 @@ Form.prototype.show = function() {
   this.container.className = 'form_container';
   this.container.style.top = window.pageYOffset + 'px';
   this.container.appendChild(this.element);
-  this.cover = new Cover(0.5);
-  this.cover.show();
-  document.body.appendChild(this.container);
-  this.cover.onClick(function(event) { self.hide(); });
-  this.scrollListener = function(event) {
-    if (self.container.offsetTop > window.pageYOffset + window.innerHeight
-      || self.container.offsetTop + self.container.offsetHeight < window.pageYOffset)
-      self.container.style.top = window.pageYOffset + 'px';
-  };
-  window.addEventListener('scroll', this.scrollListener, false);
+  this.dialog = new Dialog(this.container);
+  this.dialog.show();
 };
 
 Form.prototype.hide = function() {
-  if (isIPhoneView)
-    return;
-  document.body.removeChild(this.container);
-  this.cover.hide();
-  window.removeEventListener('scroll', this.scrollListener, false);
 };
 
 function Pager() {
@@ -655,16 +625,9 @@ ActionDispatcher.actions = [
     name: 'choice',
     longName: 'choice',
     action: function(post) {
-      enableScrollEvent(false);
-      var cover = new Cover(0.5);
       var div = document.createElement('div');
       div.className = 'choice_container';
       div.style.top = window.pageYOffset + 'px';
-      var hide = function() {
-        document.body.removeChild(div);
-        cover.hide();
-        enableScrollEvent(true);
-      };
       ActionDispatcher.actions.slice(2, -2).forEach(function(action) {
         if (prefs.get('choice' + action.name.replace(/^./, function(c) { return c.toUpperCase(); }), 'true') == 'true') {
           var button = document.createElement('div');
@@ -672,14 +635,13 @@ ActionDispatcher.actions = [
           button.className = 'choice_item';
           button.addEventListener('click', function(event) {
             action.action(post);
-            hide();
+            dialog.hide();
           }, false);
           div.appendChild(button);
         }
       });
-      cover.show();
-      document.body.appendChild(div);
-      cover.onClick(hide);
+      var dialog = new Dialog(div);
+      dialog.show();
     }
   },
   {
@@ -757,22 +719,28 @@ ActionDispatcher.prototype.enableQuad = function(enable) {
     return;
   if (enable) {
     var self = this;
-    this.cover = new Cover(0.0);
-    this.cover.show();
-    this.cover.onClick(function(event) {
+    this.cover = document.createElement('div');
+    this.cover.className = 'cover';
+    this.scrollListener = function() {
+      self.cover.style.top = postsNode.offsetTop + 'px';
+      self.cover.style.height = (paginationNode.offsetTop + paginationNode.offsetHeight - postsNode.offsetTop) + 'px';
+    };
+    this.scrollListener();
+    document.body.appendChild(this.cover);
+    this.cover.addEventListener('click', function(event) {
       var x = event.pageX - window.pageXOffset;
       var y = event.pageY - window.pageYOffset;
       var vertical = (y < window.innerHeight / 2) ? 'top' : 'bottom';
       var horizontal = (x < window.innerWidth / 2) ? 'Left' : 'Right';
       self[vertical + horizontal].action(new Post(postIterator.getCurrent()));
-      event.stopPropagation();
-      event.preventDefault();
-    });
+    }, false);
+    window.addEventListener('scroll', this.scrollListener, false);
     ($('left_column') || $('posts')).removeEventListener('click', ActionDispatcher.listenerBasic, true);
   }
   else {
     ($('left_column') || $('posts')).addEventListener('click', ActionDispatcher.listenerBasic, true);
-    this.cover.hide();
+    document.body.removeChild(this.cover);
+    window.removeEventListener('scroll', this.scrollListener, false);
   }
   this.quadEnabled = Boolean(enable);
 };
@@ -938,9 +906,8 @@ Preferences.prototype.addListener = function(listener) {
 
 Preferences.prototype.showDialog = function() {
   var self = this;
-  var cover = new Cover(0.5);
-  cover.show();
   var div = document.createElement('div');
+  var dialog = new Dialog(div);
   div.className = 'menu';
   div.style.position = 'absolute';
   div.style.top = '0';
@@ -992,16 +959,14 @@ Preferences.prototype.showDialog = function() {
         break;
       }
     }
-    document.body.removeChild(div);
-    cover.hide();
+    dialog.hide();
     self.save();
     self.listeners.forEach(function(listener) { listener(); });
   }, false);
   $x('./input[@name="cancel"]', form)[0].addEventListener('click', function(event) {
-    document.body.removeChild(div);
-    cover.hide();
+    dialog.hide();
   }, false);
-  document.body.appendChild(div);
+  dialog.show();
 };
 
 var hasKeyboard = true;
@@ -1038,19 +1003,14 @@ if (!isIPhoneView) {
 }
 
 var styleSheet = new StyleSheet();
-styleSheet.add('.cover {' + [
-  'position: absolute',
-  'top: 0',
-  'left: 0',
-  'width: 100%',
-  'background-color: #000',
-'}'].join(';'));
-styleSheet.add('.form_container {' + [
-  'position: absolute',
-  'left: 0',
-  'width: 100%',
-  'background-color: #fff',
-'}'].join(';'));
+styleSheet.add('.background { position: absolute; top: 0; left: 0; width: 100%; background-color: #000; opacity: 0.5; }');
+styleSheet.add('.cover { position: absolute; left: 0; width: 100%; opacity: 0; }');
+styleSheet.add('.form_container {'
+  + 'position: absolute;'
+  + 'left: 0;'
+  + 'width: 100%;'
+  + 'background-color: #fff;'
++ '}');
 styleSheet.add('.form_container input { width: auto; min-width: 0; max-width: 80%; }');
 styleSheet.add('.form_container .wide { width: 100%; min-width: 100%; max-width: 100%; }');
 styleSheet.add('.form_container img { max-width: 100%; }');
