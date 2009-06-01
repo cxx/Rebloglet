@@ -38,7 +38,7 @@ function $x(xpath, context) {
 }
 
 function escapeSpecialChars(s) {
-  return s.replace('&', '&amp;').replace('"', '&quot;').replace("'", '&apos;').replace('<', '&lt;').replace('>', '&gt;');
+  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&apos;').replace(/</g, '&lt;').replace('>', '&gt;'); //"
 }
 
 function doXMLHttpRequest(options) {
@@ -170,7 +170,7 @@ function Form(element) {
 }
 
 Form.urlencode = function(s) {
-  return encodeURIComponent(s).replace('%20', '+');
+  return encodeURIComponent(s).replace(/%20/g, '+');
 };
 
 Form.generateBoundary = function() {
@@ -581,9 +581,26 @@ ActionDispatcher.actions = [
     name: 'comment',
     longName: 'reblog with comment',
     action: function(post) {
-      var comment = window.prompt('input your comment', '');
-      if (comment !== null)
-        post.reblog({ comment: escapeSpecialChars(comment) });
+      var self = this;
+      var div = document.createElement('div');
+      var dialog = new Dialog(div);
+      div.className = 'dialog';
+      div.style.top = window.pageYOffset + 'px';
+      div.innerHTML =
+        '<form action="#">'
+        + '<textarea name="comment" rows="10" cols="40"></textarea>'
+        + '<input type="submit" value="OK"/>'
+        + '<input type="button" name="cancel" value="Cancel"/>'
+        +'</form>';
+      var form = div.firstChild;
+      form.addEventListener('submit', function(event) {
+        var comment = form.comment.value;
+        post.reblog(comment ? { comment: escapeSpecialChars(comment).replace(/\n/g, '<br/>') } : null);
+        dialog.hide();
+        event.preventDefault();
+      }, false);
+      form.cancel.addEventListener('click', function(event) { dialog.hide(); }, false);
+      dialog.show();
     }
   },
   {
@@ -914,11 +931,8 @@ Preferences.prototype.showDialog = function() {
   var self = this;
   var div = document.createElement('div');
   var dialog = new Dialog(div);
-  div.className = 'menu';
-  div.style.position = 'absolute';
+  div.className = 'dialog';
   div.style.top = '0';
-  div.style.left = '0';
-  div.style.backgroundColor = '#fff';
   div.innerHTML =
     '<form action="#">'
     + '<fieldset>'
@@ -955,7 +969,6 @@ Preferences.prototype.showDialog = function() {
     +'</form>';
   var form = div.firstChild;
   form.addEventListener('submit', function(event) {
-    event.preventDefault();
     for (var i = 0; i < form.length; i++) {
       var elem = form.elements[i];
       switch (elem.type) {
@@ -970,10 +983,9 @@ Preferences.prototype.showDialog = function() {
     dialog.hide();
     self.save();
     self.listeners.forEach(function(listener) { listener(); });
+    event.preventDefault();
   }, false);
-  $x('./input[@name="cancel"]', form)[0].addEventListener('click', function(event) {
-    dialog.hide();
-  }, false);
+  form.cancel.addEventListener('click', function(event) { dialog.hide(); }, false);
   dialog.show();
 };
 
@@ -1019,6 +1031,7 @@ styleSheet.add('.form_container {'
   + 'width: 100%;'
   + 'background-color: #fff;'
 + '}');
+styleSheet.add('.dialog { position: absolute; left: 0; background-color: #fff; }');
 styleSheet.add('.form_container input { width: auto; min-width: 0; max-width: 80%; }');
 styleSheet.add('.form_container .wide { width: 100%; min-width: 100%; max-width: 100%; }');
 styleSheet.add('.form_container img { max-width: 100%; }');
