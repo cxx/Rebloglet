@@ -692,23 +692,28 @@ ActionDispatcher.prototype.set = function(topLeft, topRight, bottomLeft, bottomR
 
 ActionDispatcher.prototype.setKeys = function(keys) {
   var self = this;
-  var scroll = 100;
-  if (!this.keys) {
-    window.addEventListener('keypress', function(event) {
-      var tag = event.target.tagName;
-      if (tag == 'INPUT' || tag == 'TEXTAREA')
-        return;
-      var key = String.fromCharCode(event.keyCode);
-      if (!event.shiftKey)
-        key = key.toLowerCase();
-      if (key == ' ') {
-        window.scrollBy(0, event.shiftKey ? -scroll : scroll);
-        event.preventDefault();
-      }
-      if (key in self.keys)
-        self.keys[key].action(new Post(postIterator.getCurrent()));
-    }, false);
+  var SCROLL_AMOUNT = 100;
+  if (keys) {
+    if (!this.keyListener) {
+      this.keyListener = function(event) {
+        var tag = event.target.tagName;
+        if (tag == 'INPUT' || tag == 'TEXTAREA')
+          return;
+        var key = String.fromCharCode(event.keyCode);
+        if (!event.shiftKey)
+          key = key.toLowerCase();
+        if (key == ' ') {
+          window.scrollBy(0, event.shiftKey ? -SCROLL_AMOUNT : SCROLL_AMOUNT);
+          event.preventDefault();
+        }
+        if (key in self.keys)
+          self.keys[key].action(new Post(postIterator.getCurrent()));
+      };
+    }
+    window.addEventListener('keypress', this.keyListener, false);
   }
+  else if (this.keyListener)
+    window.removeEventListener('keypress', this.keyListener, false);
   this.keys = keys;
 };
 
@@ -828,11 +833,12 @@ function Preferences() {
     self.listeners.forEach(function(listener) { listener(); });
   };
   this.table = {
-    enableActions: false,
+    enableActions: 'false',
     topLeftAction: 'choice',
     topRightAction: 'prev',
     bottomLeftAction: 'reblog',
     bottomRightAction: 'next',
+    enableKeys: 'true',
     keyPrev: 'k',
     keyNext: 'j',
     keyReblog: 't',
@@ -930,6 +936,8 @@ Preferences.prototype.showDialog = function() {
           }).join('')
     +   '</table>'
     + '</fieldset>'
+    + (hasKeyboard ? ('<input type="checkbox" name="enableKeys" value="enableKeys"' + (self.get('enableKeys') == 'true' ? ' checked="checked"' : '') + '/>'
+    + '<label for="enableKeys">use key bindings</label>') : '')
     + '<fieldset>'
     +   '<table>'
     +     '<tr><th>action</th><th>in choice</th>' + (hasKeyboard ? '<th>key</th>' : '') + '</tr>'
@@ -1043,11 +1051,15 @@ prefs.addListener(function() {
   [ 'topLeft', 'topRight', 'bottomLeft', 'bottomRight' ].forEach(function(section) {
     actionDispatcher[section] = ActionDispatcher.actions[prefs.get(section + 'Action')];
   });
-  var keys = {};
-  ActionDispatcher.actions.slice(0, -2).forEach(function(action) {
-    keys[prefs.get('key' + action.name.replace(/^./, function(c) { return c.toUpperCase(); }))] = action;
-  });
-  actionDispatcher.setKeys(keys);
+  if (prefs.get('enableKeys') == 'true') {
+    var keys = {};
+    ActionDispatcher.actions.slice(0, -2).forEach(function(action) {
+      keys[prefs.get('key' + action.name.replace(/^./, function(c) { return c.toUpperCase(); }))] = action;
+    });
+    actionDispatcher.setKeys(keys);
+  }
+  else
+    actionDispatcher.setKeys(null);
 });
 prefs.addListener(function() { postIterator.refresh(); });
 var history;
