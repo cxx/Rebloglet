@@ -838,7 +838,7 @@ function Preferences() {
     topRightAction: 'prev',
     bottomLeftAction: 'reblog',
     bottomRightAction: 'next',
-    enableKeys: 'true',
+    enableKeys: String(hasKeyboard),
     keyPrev: 'k',
     keyNext: 'j',
     keyReblog: 't',
