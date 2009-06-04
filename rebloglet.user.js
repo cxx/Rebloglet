@@ -588,9 +588,9 @@ ActionDispatcher.actions = [
       div.style.top = window.pageYOffset + 'px';
       div.innerHTML =
         '<form action="#">'
-        + '<textarea name="comment" rows="10" cols="46"></textarea>'
-        + '<input type="submit" value="OK"/>'
-        + '<input type="button" name="cancel" value="Cancel"/>'
+        + '<p><textarea name="comment" rows="9" cols="46"></textarea></p>'
+        + '<p><input type="submit" value="OK"/>'
+        + '<input type="button" name="cancel" value="Cancel"/></p>'
         +'</form>';
       var form = div.firstChild;
       form.addEventListener('submit', function(event) {
