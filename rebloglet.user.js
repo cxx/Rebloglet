@@ -12,7 +12,7 @@
 // @include        http://www.tumblr.com/show/*
 // @include        http://www.tumblr.com/filter/*
 // @exclude        http://www.tumblr.com/tumblelog/*/followers
-// @version        0.2.20090528.0
+// @version        0.2.20090605.0
 // ==/UserScript==
 
 (function(){
@@ -588,7 +588,7 @@ ActionDispatcher.actions = [
       div.style.top = window.pageYOffset + 'px';
       div.innerHTML =
         '<form action="#">'
-        + '<textarea name="comment" rows="10" cols="40"></textarea>'
+        + '<textarea name="comment" rows="10" cols="46"></textarea>'
         + '<input type="submit" value="OK"/>'
         + '<input type="button" name="cancel" value="Cancel"/>'
         +'</form>';
@@ -601,6 +601,7 @@ ActionDispatcher.actions = [
       }, false);
       form.cancel.addEventListener('click', function(event) { dialog.hide(); }, false);
       dialog.show();
+      form.comment.focus();
     }
   },
   {
@@ -1025,12 +1026,7 @@ if (!isIPhoneView) {
 var styleSheet = new StyleSheet();
 styleSheet.add('.background { position: absolute; top: 0; left: 0; width: 100%; background-color: #000; opacity: 0.5; }');
 styleSheet.add('.cover { position: absolute; left: 0; width: 100%; opacity: 0; }');
-styleSheet.add('.form_container {'
-  + 'position: absolute;'
-  + 'left: 0;'
-  + 'width: 100%;'
-  + 'background-color: #fff;'
-+ '}');
+styleSheet.add('.form_container { position: absolute; left: 0; width: 100%; background-color: #fff; }');
 styleSheet.add('.dialog { position: absolute; left: 0; background-color: #fff; }');
 styleSheet.add('.form_container input { width: auto; min-width: 0; max-width: 80%; }');
 styleSheet.add('.form_container .wide { width: 100%; min-width: 100%; max-width: 100%; }');
