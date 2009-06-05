@@ -12,7 +12,9 @@
 // @include        http://www.tumblr.com/show/*
 // @include        http://www.tumblr.com/filter/*
 // @exclude        http://www.tumblr.com/tumblelog/*/followers
-// @version        0.2.20090605.0
+// @copyright      2009, cxx <http://tumblr.g.hatena.ne.jp/cxx/20090406/1238998308>
+// @license        GPLv3 or later <http://www.gnu.org/licenses/gpl.html>
+// @version        0.2.20090606.0
 // ==/UserScript==
 
 (function(){
