@@ -837,9 +837,9 @@ Post.prototype.getSourceLink = function() {
   return link ? link.href : this.getPermalink();
 };
 
-function Preferences() {
+function Preferences(callback) {
   var self = this;
-  var addButton = function() {
+  var after = function() {
     var showPrefNode = document.createElement('div');
     var showPrefButton = document.createElement('input');
     showPrefButton.type = 'button';
@@ -850,7 +850,8 @@ function Preferences() {
     }, false);
     showPrefNode.appendChild(showPrefButton);
     postsNode.parentNode.insertBefore(showPrefNode, postsNode);
-    self.listeners.forEach(function(listener) { listener(); });
+    self.listeners.forEach(function(listener) { listener(self); });
+    if (typeof callback == 'funtion') callback(self);
   };
   this.table = {
     enableActions: 'false',
@@ -887,14 +888,14 @@ function Preferences() {
             }
           }
         );
-      }, addButton, addButton);
+      }, after, after);
     }
     catch (e) {
-      window.setTimeout(addButton, 0);
+      window.setTimeout(after, 0);
     }
   }
   else
-    window.setTimeout(addButton, 0);
+    window.setTimeout(after, 0);
 }
 
 Preferences.prototype.get = function(key, defaultValue) {
@@ -910,7 +911,7 @@ Preferences.prototype.set = function(key, value) {
 
 Preferences.prototype.dump = function() {
   for (var key in this.table)
-    console.log(key + ': ' + this.table[key] + ', ');
+    console.log(key + ': ' + this.table[key]);
 };
 
 Preferences.prototype.save = function() {
@@ -985,7 +986,7 @@ Preferences.prototype.showDialog = function() {
     }
     dialog.hide();
     self.save();
-    self.listeners.forEach(function(listener) { listener(); });
+    self.listeners.forEach(function(listener) { listener(self); });
     event.preventDefault();
   }, false);
   form.cancel.addEventListener('click', function(event) { dialog.hide(); }, false);
