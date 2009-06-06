@@ -940,7 +940,7 @@ Preferences.prototype.showDialog = function() {
     '<form action="#">'
     + '<fieldset>'
     +   '<input type="checkbox" name="enableActions" value="enableActions"' + (self.get('enableActions') == 'true' ? ' checked="checked"' : '') + '/>'
-    +   '<label for="enableActions">execute action when each section is tapped</label>'
+    +   '<label for="enableActions">use the whole client area as 4 buttons</label>'
     +   '<table>'
     +     [ 'top left', 'top right', 'bottom left', 'bottom right' ].map(function(section) {
             var name = section.replace(/ ./, function(s) { return s.charAt(1).toUpperCase(); }) + 'Action';
