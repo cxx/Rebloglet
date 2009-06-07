@@ -144,6 +144,7 @@ function StyleSheet() {
 
 StyleSheet.prototype.add = function(rule) {
   this.style.sheet.insertRule(rule, 0);
+  return this;
 };
 
 function Dialog(foreground) {
@@ -277,9 +278,6 @@ Form.prototype.show = function() {
   this.dialog.show();
 };
 
-Form.prototype.hide = function() {
-};
-
 function Pager() {
   var self = this;
   if (isIPhoneView) {
@@ -291,7 +289,7 @@ function Pager() {
     this.postsExp = /<!-- Posts -->\s*<ol id="posts" ?>([\s\S]*)<\/ol>\s*<!-- No posts found -->/;
   }
   this.paginationNode = isIPhoneView ? $('footer') : $('pagination');
-  this.nextLinkNode = $x('./a[contains(text(),"Next page")]', this.paginationNode)[0];
+  nextLinkNode = this.nextLinkNode = $x('./a[contains(text(),"Next page")]', this.paginationNode)[0];
   this.curUri = window.location.pathname;
   this.state = 'load';
   this.listeners = [];
@@ -342,7 +340,6 @@ Pager.prototype.loadNext = function() {
       var text = response.responseText;
       var div = document.createElement('div');
       div.innerHTML = text.match(self.postsExp)[1];
-      var postsNode = $('posts');
       var newPosts = $x('./*', div);
       for (var i = newPosts.length - 1; i >= 0; i--)
         if (newPosts[i].id.match(/(\d+)/) && Number(RegExp.$1) >= self.minPostId)
@@ -467,21 +464,15 @@ Pager.prototype.removePassedPosts = function() {
 
 Pager.prototype.addListener = function(listener) {
   this.listeners.push(listener);
-};
-
-Pager.prototype.enableAuto = function() {
-  this.auto = true;
-};
-
-Pager.prototype.disableAuto = function() {
-  this.auto = false;
+  listener($x('id("posts")/*'), self.minPostId);
 };
 
 function PostIterator() {
   var self = this;
   this.listeners = [];
+  this.scrollListener = function() { self.refresh(); };
   this.refresh();
-  window.addEventListener('scroll', function() { self.refresh(); }, false);
+  window.addEventListener('scroll', this.scrollListener, false);
 }
 
 PostIterator.prototype.getCurrent = function() {
@@ -504,11 +495,11 @@ PostIterator.prototype.next = function() {
   var xpath = 'following-sibling::*[contains(@class,"post")][not(contains(@class,"controls"))]';
   if (this.current) {
     var followings = $x(xpath, this.current);
+    if (followings.length <= 10)
+      pager.loadNext();
     var next = followings[0];
     if (next) {
       this.setCurrent(next);
-      if (followings.length <= 10)
-        pager.loadNext();
       return next;
     }
   }
@@ -535,12 +526,50 @@ PostIterator.prototype.refresh = function() {
 
 PostIterator.prototype.addListener = function(listener) {
   this.listeners.push(listener);
+  listener(this.current);
+};
+
+PostIterator.prototype.enableAutoRefresh = function(enable) {
+  window[enable ? 'addEventListener' : 'removeEventListener']('scroll', this.scrollListener, false);
 };
 
 function ActionDispatcher() {
-  this.topLeft = this.topRight = this.buttomLeft = this.bottomRight = ActionDispatcher.actions.nothing;
+  var self = this;
   this.quadEnabled = false;
+  this.exclusiveEnabled = false;
   ($('left_column') || $('posts')).addEventListener('click', ActionDispatcher.listenerBasic, true);
+  prefs.addListener(function() {
+    self.enableQuad(prefs.get('enableActions') == 'true');
+    [ 'topLeft', 'topRight', 'bottomLeft', 'bottomRight' ].forEach(function(section) {
+      self[section] = ActionDispatcher.actions[prefs.get(section + 'Action')];
+    });
+    var keys = null;
+    if (prefs.get('enableKeys') == 'true') {
+      keys = {};
+      ActionDispatcher.actions.slice(0, -2).forEach(function(action) {
+        keys[prefs.get('key' + action.name.replace(/^./, function(c) { return c.toUpperCase(); }))] = action;
+      });
+    }
+    self.setKeys(keys);
+    self.enableExclusive(prefs.get('enableExclusive') == 'true');
+  });
+  pager.addListener(function(posts) {
+    if (self.exclusiveEnabled) {
+      posts.forEach(function(post) { post.style.display = 'none'; });
+      $x('id("posts")/*[contains(@class,"history")]').forEach(function(history) { history.style.display = 'none'; });
+      if (self.current)
+        self.current.style.display = 'block';
+    }
+  });
+  postIterator.addListener(function(current) {
+    if (self.current) {
+      self.current.style.backgroundColor = '#fff';
+      if (self.exclusiveEnabled)
+        self.current.style.display = 'none';
+    }
+    self.current = current;
+    self.refresh();
+  });
 }
 
 ActionDispatcher.actions = [
@@ -735,11 +764,10 @@ ActionDispatcher.prototype.setKeys = function(keys) {
   else if (this.keyListener)
     window.removeEventListener('keypress', this.keyListener, false);
   this.keys = keys;
+  this.refresh();
 };
 
 ActionDispatcher.prototype.enableQuad = function(enable) {
-  if (arguments.length == 0)
-    enable = true;
   if (this.quadEnabled == enable)
     return;
   if (enable) {
@@ -761,17 +789,37 @@ ActionDispatcher.prototype.enableQuad = function(enable) {
     }, false);
     window.addEventListener('scroll', this.scrollListener, false);
     ($('left_column') || $('posts')).removeEventListener('click', ActionDispatcher.listenerBasic, true);
+    color = '#cfc';
   }
   else {
     ($('left_column') || $('posts')).addEventListener('click', ActionDispatcher.listenerBasic, true);
     document.body.removeChild(this.cover);
     window.removeEventListener('scroll', this.scrollListener, false);
   }
-  this.quadEnabled = Boolean(enable);
+  this.quadEnabled = enable;
+  this.refresh();
 };
 
-ActionDispatcher.prototype.disableQuad = function() {
-  this.enableQuad(false);
+ActionDispatcher.prototype.enableExclusive = function(enable) {
+  enable = enable && (this.quadEnabled || (hasKeyboard && this.keys));
+  if (this.exclusiveEnabled == enable)
+    return;
+
+  var style = enable ? 'none' : 'block';
+  $x('id("posts")/*[not(contains(@class,"controls"))]').forEach(function(elem) { elem.style.display = style; });
+  postsNode.style.minHeight = '865px'; // 416
+  if (this.current)
+    this.current.style.display = 'block';
+  postIterator.enableAutoRefresh(!enable);
+  this.exclusiveEnabled = enable;
+  this.refresh();
+};
+
+ActionDispatcher.prototype.refresh = function() {
+  if (this.current) {
+    this.current.style.backgroundColor = (!this.exclusiveEnabled && (this.quadEnabled || (hasKeyboard && this.keys))) ? '#cfc' : '#fff';
+    this.current.style.display = 'block';
+  }
 };
 
 function Post(element) {
@@ -851,7 +899,7 @@ function Preferences(callback) {
     showPrefNode.appendChild(showPrefButton);
     postsNode.parentNode.insertBefore(showPrefNode, postsNode);
     self.listeners.forEach(function(listener) { listener(self); });
-    if (typeof callback == 'funtion') callback(self);
+    if (typeof callback == 'function') callback(self);
   };
   this.table = {
     enableActions: 'false',
@@ -869,7 +917,8 @@ function Preferences(callback) {
     keyOpen: 'v',
     keySource: 'V',
     keyLike: 'l',
-    history: '[{ id: 0, time: 0 }]'
+    history: '[{ id: 0, time: 0 }]',
+    enableExclusive: 'false'
   };
   this.listeners = [];
   if (window.openDatabase) {
@@ -929,6 +978,7 @@ Preferences.prototype.save = function() {
 
 Preferences.prototype.addListener = function(listener) {
   this.listeners.push(listener);
+  listener(this);
 };
 
 Preferences.prototype.showDialog = function() {
@@ -954,6 +1004,8 @@ Preferences.prototype.showDialog = function() {
           }).join('')
     +   '</table>'
     + '</fieldset>'
+    + '<input type="checkbox" name="enableExclusive" value="enableExclusive"' + (self.get('enableExclusive') == 'true' ? ' checked="checked"' : '') + '/>'
+    + '<label for="enableExclusive">show one post at a time</label>'
     + (hasKeyboard ? ('<input type="checkbox" name="enableKeys" value="enableKeys"' + (self.get('enableKeys') == 'true' ? ' checked="checked"' : '') + '/>'
     + '<label for="enableKeys">use key bindings</label>') : '')
     + '<fieldset>'
@@ -993,6 +1045,46 @@ Preferences.prototype.showDialog = function() {
   dialog.show();
 };
 
+function History() {
+  var self = this;
+  this.history = eval(prefs.get('history'));
+  var first = $x('id("posts")/*[contains(@class,"post")]')[0];
+  if (first) {
+    var id = Number(first.id.match(/\d+/)[0]);
+    if (id >= this.history[0].id) {
+      var appended = [{ id: id, time: (new Date()).valueOf() }].concat(this.history).slice(0, 5);
+      prefs.set(
+        'history',
+        '[' + appended.map(function(i) { return '{ "id": ' + i.id + ', "time": ' + i.time + ' }'; }).join() + ']'
+      );
+      prefs.save();
+    }
+    else {
+      while (this.history.length > 0 && this.history[0].id > id)
+        this.history.shift();
+    }
+  }
+  pager.addListener(function(posts, minId) {
+    if (self.history.length > 0 && self.history[0].id >= minId) {
+      for (var i = 0; i < posts.length; i++) {
+        if (posts[i].id.match(/(\d+)/) && Number(RegExp.$1) <= self.history[0].id) {
+          var li = document.createElement('li');
+          li.className = 'post history';
+          li.style.padding = '0';
+          var div = document.createElement('div');
+          div.textContent = new Date(self.history[0].time);
+          div.style.backgroundColor = '#ff0';
+          li.appendChild(div);
+          postsNode.insertBefore(li, posts[i]);
+          self.history.shift();
+          if (self.history.length == 0)
+            break;
+        }
+      }
+    }
+  });
+}
+
 var hasKeyboard = true;
 
 if (window.navigator.userAgent.indexOf('AppleWebKit') != -1
@@ -1009,6 +1101,7 @@ if (window.navigator.userAgent.indexOf('AppleWebKit') != -1
 }
 
 var postsNode = $('posts');
+var nextLinkNode;
 var paginationNode = isIPhoneView ? $('footer') : $('pagination');
 var viewWidth = isIPhoneView ? 320 : 665;
 
@@ -1016,8 +1109,8 @@ if (!isIPhoneView) {
   Ajax.PeriodicalUpdater.prototype.onTimerEvent = function() {};
   document.body.onclick = null;
 
-  [ $('header_container'), $('content_top'), $('right_column'), $('content_bottom'), $('footer') ]
-    .forEach(function(node) { node.parentNode.removeChild(node); });
+  [ $('header_container'), $('content_top'), $('right_column'), $('content_bottom'), $('footer'), $x('id("posts")/*[contains(@class,"new_post")]')[0] ]
+    .forEach(function(node) { if (node) node.parentNode.removeChild(node); });
 
   $('pagination').style.padding = '0';
   $('container').style.width = '665px';
@@ -1026,93 +1119,34 @@ if (!isIPhoneView) {
   $x('//meta[@name="viewport"]')[0].content = 'width = 665';
 }
 
-var styleSheet = new StyleSheet();
-styleSheet.add('.background { position: absolute; top: 0; left: 0; width: 100%; background-color: #000; opacity: 0.5; }');
-styleSheet.add('.cover { position: absolute; left: 0; width: 100%; opacity: 0; }');
-styleSheet.add('.form_container { position: absolute; left: 0; width: 100%; background-color: #fff; }');
-styleSheet.add('.dialog { position: absolute; left: 0; background-color: #fff; }');
-styleSheet.add('.form_container input { width: auto; min-width: 0; max-width: 80%; }');
-styleSheet.add('.form_container .wide { width: 100%; min-width: 100%; max-width: 100%; }');
-styleSheet.add('.form_container img { max-width: 100%; }');
-styleSheet.add('.form_container div[id=right_column] { background-color: #777; }');
-styleSheet.add('.padding { padding: 0; margin: 0; }');
-styleSheet.add('.choice_container { position: absolute; left: 0; width: 100%; text-align: center; }');
-styleSheet.add('.choice_item {'
-  + 'width: 100%;'
-  + 'padding: ' + (isIPhoneView ? '16' : '8') + 'px 0;'
-  + 'margin:' + Math.floor(viewWidth * 0.05) + 'px 0;'
-  + 'font-size:' + Math.floor(viewWidth * 0.1) + 'px;'
-  + 'color: #000;'
-  + 'background-color: #ccc;'
-+ '}');
+(new StyleSheet())
+  .add('.background { position: absolute; top: 0; left: 0; width: 100%; background-color: #000; opacity: 0.5; }')
+  .add('.cover { position: absolute; left: 0; width: 100%; opacity: 0; }')
+  .add('.dialog { position: absolute; left: 0; background-color: #fff; }')
+  .add('.form_container { position: absolute; left: 0; width: 100%; background-color: #fff; }')
+  .add('.form_container input { width: auto; min-width: 0; max-width: 80%; }')
+  .add('.form_container .wide { width: 100%; min-width: 100%; max-width: 100%; }')
+  .add('.form_container img { max-width: 100%; }')
+  .add('.form_container div[id=right_column] { background-color: #777; }')
+  .add('.choice_container { position: absolute; left: 0; width: 100%; text-align: center; }')
+  .add('.choice_item {'
+    + 'width: 100%;'
+    + 'padding: ' + (isIPhoneView ? '16' : '8') + 'px 0;'
+    + 'margin:' + Math.floor(viewWidth * 0.05) + 'px 0;'
+    + 'font-size:' + Math.floor(viewWidth * 0.1) + 'px;'
+    + 'color: #000;'
+    + 'background-color: #ccc;'
+  + '}')
+  .add('.padding { padding: 0; margin: 0; }');
 
-var pager = new Pager();
-var actionDispatcher = new ActionDispatcher();
-var postIterator = new PostIterator();
-postIterator.addListener(function(current) {
-  if (actionDispatcher.current)
-    actionDispatcher.current.style.backgroundColor = '#fff';
-  actionDispatcher.current = current;
-  if ((actionDispatcher.quadEnabled || hasKeyboard) && actionDispatcher.current)
-    actionDispatcher.current.style.backgroundColor = '#cfc';
-});
-
-var prefs = new Preferences();
-prefs.addListener(function() {
-  actionDispatcher.enableQuad(prefs.get('enableActions') == 'true');
-  [ 'topLeft', 'topRight', 'bottomLeft', 'bottomRight' ].forEach(function(section) {
-    actionDispatcher[section] = ActionDispatcher.actions[prefs.get(section + 'Action')];
-  });
-  if (prefs.get('enableKeys') == 'true') {
-    var keys = {};
-    ActionDispatcher.actions.slice(0, -2).forEach(function(action) {
-      keys[prefs.get('key' + action.name.replace(/^./, function(c) { return c.toUpperCase(); }))] = action;
-    });
-    actionDispatcher.setKeys(keys);
-  }
-  else
-    actionDispatcher.setKeys(null);
-});
-prefs.addListener(function() { postIterator.refresh(); });
-var history;
-prefs.addListener(function() {
-  if (history) return;
-  history = eval(prefs.get('history'));
-  var first = $x('id("posts")/*[contains(@class,"post")]')[0];
-  if (first) {
-    var id = Number(first.id.replace('post_', ''));
-    if (id >= history[0].id) {
-      var appended = [{ id: id, time: (new Date).valueOf() }].concat(history).slice(0, 5);
-      prefs.set(
-        'history',
-        '[' + appended.map(function(i) { return '{ "id": ' + i.id + ', "time": ' + i.time + ' }'; }).join() + ']'
-      );
-      prefs.save();
-    }
-    else {
-      while (history.length > 0 && history[0].id > id)
-        history.shift();
-    }
-  }
-  pager.addListener(function(posts, minId) {
-    if (history.length > 0 && history[0].id >= minId) {
-      for (var i = 0; i < posts.length; i++) {
-        if (posts[i].id.match(/(\d+)/) && Number(RegExp.$1) <= history[0].id) {
-          var li = document.createElement('li');
-          li.className = 'post';
-          li.style.padding = '0';
-          var div = document.createElement('div');
-          div.textContent = new Date(history[0].time);
-          div.style.backgroundColor = '#ff0';
-          li.appendChild(div);
-          postsNode.insertBefore(li, posts[i]);
-          history.shift();
-          if (history.length == 0)
-            break;
-        }
-      }
-    }
-  });
+var pager;
+var postIterator;
+var actionDispatcher;
+var prefs = new Preferences(function() {
+  pager = new Pager();
+  postIterator = new PostIterator();
+  new History();
+  actionDispatcher = new ActionDispatcher();
 });
 
 })();
