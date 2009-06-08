@@ -143,7 +143,7 @@ function StyleSheet() {
 }
 
 StyleSheet.prototype.add = function(rule) {
-  this.style.sheet.insertRule(rule, 0);
+  this.style.sheet.insertRule(rule, this.style.sheet.cssRules.length);
   return this;
 };
 
@@ -682,6 +682,9 @@ ActionDispatcher.actions = [
           var button = document.createElement('div');
           button.textContent = action.longName;
           button.className = 'choice_item';
+          button.style.padding = (isIPhoneView ? '16' : '8') + 'px 0';
+          button.style.margin = Math.floor(viewWidth * 0.05) + 'px 0';
+          button.style.fontSize = Math.floor(viewWidth * 0.1) + 'px';
           button.addEventListener('click', function(event) {
             action.action(post);
             dialog.hide();
@@ -918,7 +921,8 @@ function Preferences(callback) {
     keySource: 'V',
     keyLike: 'l',
     history: '[{ id: 0, time: 0 }]',
-    enableExclusive: 'false'
+    enableExclusive: 'false',
+    hideLeftColumn: 'true'
   };
   this.listeners = [];
   if (window.openDatabase) {
@@ -989,7 +993,7 @@ Preferences.prototype.showDialog = function() {
   div.style.top = '0';
   div.innerHTML =
     '<form action="#">'
-    + '<fieldset>'
+    + '<p><fieldset>'
     +   '<input type="checkbox" name="enableActions" value="enableActions"' + (self.get('enableActions') == 'true' ? ' checked="checked"' : '') + '/>'
     +   '<label for="enableActions">use the whole client area as 4 buttons</label>'
     +   '<table>'
@@ -1003,12 +1007,14 @@ Preferences.prototype.showDialog = function() {
               + '</select></td></tr>';
           }).join('')
     +   '</table>'
-    + '</fieldset>'
-    + '<input type="checkbox" name="enableExclusive" value="enableExclusive"' + (self.get('enableExclusive') == 'true' ? ' checked="checked"' : '') + '/>'
-    + '<label for="enableExclusive">show one post at a time</label>'
-    + (hasKeyboard ? ('<input type="checkbox" name="enableKeys" value="enableKeys"' + (self.get('enableKeys') == 'true' ? ' checked="checked"' : '') + '/>'
-    + '<label for="enableKeys">use key bindings</label>') : '')
-    + '<fieldset>'
+    + '</fieldset></p>'
+    + '<p><input type="checkbox" name="enableExclusive" value="enableExclusive"' + (self.get('enableExclusive') == 'true' ? ' checked="checked"' : '') + '/>'
+    + '<label for="enableExclusive">show one post at a time</label></p>'
+    + '<p><input type="checkbox" name="hideLeftColumn" value="hideLeftColumn"' + (self.get('hideLeftColumn') == 'true' ? ' checked="checked"' : '') + '/>'
+    + '<label for="hideLeftColumn">hide left column on normal Dashboard</label></p>'
+    + (hasKeyboard ? ('<p><input type="checkbox" name="enableKeys" value="enableKeys"' + (self.get('enableKeys') == 'true' ? ' checked="checked"' : '') + '/>'
+    + '<label for="enableKeys">use key bindings</label></p>') : '')
+    + '<p><fieldset>'
     +   '<table>'
     +     '<tr><th>action</th><th>in choice</th>' + (hasKeyboard ? '<th>key</th>' : '') + '</tr>'
     +     ActionDispatcher.actions.slice(hasKeyboard ? 0 : 2, -2).map(function(action) {
@@ -1019,9 +1025,9 @@ Preferences.prototype.showDialog = function() {
               + (hasKeyboard ? ('<td><input type="text" name="key' + capi + '" value="' + self.get('key' + capi) + '"/></td>') : '') + '</tr>';
           }).join('')
     +   '</table>'
-    + '</fieldset>'
-    + '<input type="submit" value="OK"/>'
-    + '<input type="button" name="cancel" value="Cancel"/>'
+    + '</fieldset></p>'
+    + '<p><input type="submit" value="OK"/>'
+    + '<input type="button" name="cancel" value="Cancel"/></p>'
     +'</form>';
   var form = div.firstChild;
   form.addEventListener('submit', function(event) {
@@ -1105,6 +1111,19 @@ var nextLinkNode;
 var paginationNode = isIPhoneView ? $('footer') : $('pagination');
 var viewWidth = isIPhoneView ? 320 : 665;
 
+var styleSheet = (new StyleSheet())
+  .add('.background { position: absolute; top: 0; left: 0; width: 100%; background-color: #000; opacity: 0.5; }')
+  .add('.cover { position: absolute; left: 0; width: 100%; opacity: 0; }')
+  .add('.dialog { position: absolute; left: 0; background-color: #fff; }')
+  .add('.form_container { position: absolute; left: 0; width: 100%; background-color: #fff; }')
+  .add('.form_container input { width: auto; min-width: 0; max-width: 80%; }')
+  .add('.form_container .wide { width: 100%; min-width: 100%; max-width: 100%; }')
+  .add('.form_container img { max-width: 100%; }')
+  .add('.form_container div[id=right_column] { background-color: #777; }')
+  .add('.choice_container { position: absolute; left: 0; width: 100%; text-align: center; }')
+  .add('.choice_item { width: 100%; color: #000; background-color: #ccc; }')
+  .add('.padding { padding: 0; margin: 0; }');
+
 if (!isIPhoneView) {
   Ajax.PeriodicalUpdater.prototype.onTimerEvent = function() {};
   document.body.onclick = null;
@@ -1119,30 +1138,30 @@ if (!isIPhoneView) {
   $x('//meta[@name="viewport"]')[0].content = 'width = 665';
 }
 
-(new StyleSheet())
-  .add('.background { position: absolute; top: 0; left: 0; width: 100%; background-color: #000; opacity: 0.5; }')
-  .add('.cover { position: absolute; left: 0; width: 100%; opacity: 0; }')
-  .add('.dialog { position: absolute; left: 0; background-color: #fff; }')
-  .add('.form_container { position: absolute; left: 0; width: 100%; background-color: #fff; }')
-  .add('.form_container input { width: auto; min-width: 0; max-width: 80%; }')
-  .add('.form_container .wide { width: 100%; min-width: 100%; max-width: 100%; }')
-  .add('.form_container img { max-width: 100%; }')
-  .add('.form_container div[id=right_column] { background-color: #777; }')
-  .add('.choice_container { position: absolute; left: 0; width: 100%; text-align: center; }')
-  .add('.choice_item {'
-    + 'width: 100%;'
-    + 'padding: ' + (isIPhoneView ? '16' : '8') + 'px 0;'
-    + 'margin:' + Math.floor(viewWidth * 0.05) + 'px 0;'
-    + 'font-size:' + Math.floor(viewWidth * 0.1) + 'px;'
-    + 'color: #000;'
-    + 'background-color: #ccc;'
-  + '}')
-  .add('.padding { padding: 0; margin: 0; }');
-
 var pager;
 var postIterator;
 var actionDispatcher;
 var prefs = new Preferences(function() {
+  if (!isIPhoneView) {
+    prefs.addListener(function() {
+      if (prefs.get('hideLeftColumn') == 'true') {
+        styleSheet.add('.so_ie_doesnt_treat_this_as_inline { display: none; }');
+        $('posts').style.margin = '0';
+        $('left_column').style.width = '540px';
+        $('container').style.width = '580px';
+        $x('//meta[@name="viewport"]')[0].content = 'width = 580';
+        viewWidth = 580;
+      }
+      else {
+        styleSheet.add('.so_ie_doesnt_treat_this_as_inline { display: block; }');
+        $('posts').style.margin = '0 0 0 85px';
+        $('left_column').style.width = '625px';
+        $('container').style.width = '665px';
+        $x('//meta[@name="viewport"]')[0].content = 'width = 665';
+        viewWidth = 665;
+      }
+    });
+  }
   pager = new Pager();
   postIterator = new PostIterator();
   new History();
