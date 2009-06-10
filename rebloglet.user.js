@@ -14,7 +14,7 @@
 // @exclude        http://www.tumblr.com/tumblelog/*/followers
 // @copyright      2009, cxx <http://tumblr.g.hatena.ne.jp/cxx/20090406/1238998308>
 // @license        GPLv3 or later <http://www.gnu.org/licenses/gpl.html>
-// @version        0.2.20090606.0
+// @version        0.3.20090610.0
 // ==/UserScript==
 
 (function(){
@@ -288,9 +288,18 @@ function Pager() {
     this.paginationNode = $('pagination');
     this.postsExp = /<!-- Posts -->\s*<ol id="posts" ?>([\s\S]*)<\/ol>\s*<!-- No posts found -->/;
   }
-  this.paginationNode = isIPhoneView ? $('footer') : $('pagination');
   nextLinkNode = this.nextLinkNode = $x('./a[contains(text(),"Next page")]', this.paginationNode)[0];
   this.curUri = window.location.pathname;
+  if (this.curUri.indexOf('/dashboard') == 0)
+    this.baseUri = '/dashboard/';
+  else if (this.curUri.match(/^(.*\/)(\d+)$/)) {
+    this.baseUri = RegExp.$1;
+    this.baseNum = Number(RegExp.$2);
+  }
+  else {
+    this.baseUri = this.curUri + (this.curUri.slice(-1) == '/' ? '' : '/');
+    this.baseNum = 1;
+  }
   this.state = 'load';
   this.listeners = [];
   if (window.location.hash) {
@@ -303,7 +312,10 @@ function Pager() {
     window.setTimeout(function() { self.loadNext(); }, 0);
   }
   else {
-    this.nextUri = this.nextLinkNode.href;
+    if (this.curUri.indexOf('/show/') == -1)
+      this.nextUri = this.nextLinkNode.href;
+    else
+      this.nextUri = this.baseUri + (this.baseNum + 1);
     var posts = $('posts');
     $x('./text()', posts).forEach(function(text) { posts.removeChild(text); });
     var last = $x('id("posts")/*[last()]')[0];
@@ -354,14 +366,10 @@ Pager.prototype.loadNext = function() {
         else {
           switch (self.state) {
           case 'load':
-            if (self.curUri.match(/^(.*\/)(\d+)$/)) {
-              self.baseUri = RegExp.$1;
-              self.baseNum = Number(RegExp.$2);
-            }
-            else {
-              self.baseUri = self.curUri + (self.curUri.slice(-1) == '/' ? '' : '/');
+            if (self.curUri.match(/^(?:.*\/)(\d+)$/))
+              self.baseNum = Number(RegExp.$1);
+            else
               self.baseNum = 1;
-            }
             self.nextNum = self.baseNum + 1;
             self.step = 1;
             self.state = 'find_upper';
@@ -416,8 +424,19 @@ Pager.prototype.loadNext = function() {
       }
 
       if (self.state == 'load') {
-        var nextNodeExp = /<a [^>]*href="([^"]*)"[^>]*>Next page &#8594;<\/a>/; //"
-        var nextUri = (text.match(nextNodeExp) == null) ? null : (self.nextLinkNode.href = RegExp.$1);
+        var nextUri;
+        if (self.nextUri.indexOf('/show/') == -1) {
+          var nextNodeExp = /<a [^>]*href="([^"]*)"[^>]*>Next page &#8594;<\/a>/; //"
+          nextUri = (text.match(nextNodeExp) == null) ? null : (self.nextLinkNode.href = RegExp.$1);
+        }
+        else {
+          var curNum;
+          if (self.nextUri.match(/^(?:.*\/)(\d+)$/))
+            curNum = Number(RegExp.$1);
+          else
+            curNum = 1;
+          nextUri = self.baseUri + (curNum + 1);
+        }
         window.location.hash = encodeURIComponent(self.curUri.match(/(?:http:\/\/www\.tumblr\.com)?(\/.*)/)[1]);
         self.curUri = self.nextUri;
         self.nextUri = nextUri;
@@ -441,14 +460,15 @@ Pager.prototype.loadNext = function() {
 
 Pager.prototype.removePassedPosts = function() {
   var postsNode = $('posts');
-  var posts = $x('id("posts")/*[contains(@class,"post")][not(contains(@class,"controls"))]');
+  var posts = $x('id("posts")/*[contains(@class,"post")][not(contains(@class,"controls"))][not(contains(@class,"history"))]');
   var maxPostNum = 23;
   var removedNum = Math.max(posts.length - maxPostNum, 0);
   if (removedNum > 0) {
     var remain = posts[removedNum];
+    var current = postIterator.getCurrent();
     var removed = [];
     var elem;
-    for (var i = 0; (elem = postsNode.childNodes[i]) != remain; i++)
+    for (var i = 0; (elem = postsNode.childNodes[i]) != remain && elem != current; i++)
       removed.push(elem);
     var padding = document.createElement('li');
     padding.className = 'padding';
