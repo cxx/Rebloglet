@@ -14,7 +14,7 @@
 // @exclude        http://www.tumblr.com/tumblelog/*/followers
 // @copyright      2009, cxx <http://tumblr.g.hatena.ne.jp/cxx/20090406/1238998308>
 // @license        GPLv3 or later <http://www.gnu.org/licenses/gpl.html>
-// @version        0.3.20090610.0
+// @version        0.3.20090621.0
 // ==/UserScript==
 
 (function(){
@@ -282,13 +282,14 @@ function Pager() {
   var self = this;
   if (isIPhoneView) {
     this.paginationNode = $('footer');
-    this.postsExp = /<ul id="posts">([\s\S]*)<\/ul>\s*<div id="footer">/;
+    this.nextLinkNode = $('footer');
+    this.postsExp = /<!-- START POSTS -->([\s\S]*)<!-- END POSTS -->/;
   }
   else {
     this.paginationNode = $('pagination');
+    this.nextLinkNode = $x('./a[contains(text(),"Next page")]', this.paginationNode)[0];
     this.postsExp = /<!-- Posts -->\s*<ol id="posts" ?>([\s\S]*)<\/ol>\s*<!-- No posts found -->/;
   }
-  nextLinkNode = this.nextLinkNode = $x('./a[contains(text(),"Next page")]', this.paginationNode)[0];
   this.curUri = window.location.pathname;
   if (this.curUri.indexOf('/dashboard') == 0)
     this.baseUri = '/dashboard/';
@@ -312,16 +313,16 @@ function Pager() {
     window.setTimeout(function() { self.loadNext(); }, 0);
   }
   else {
-    if (this.curUri.indexOf('/show/') == -1)
-      this.nextUri = this.nextLinkNode.href;
-    else
-      this.nextUri = this.baseUri + (this.baseNum + 1);
-    var posts = $('posts');
-    $x('./text()', posts).forEach(function(text) { posts.removeChild(text); });
-    var last = $x('id("posts")/*[last()]')[0];
+    $x('./text()', postsNode).forEach(function(text) { postsNode.removeChild(text); });
+    var last = $x('./*[last()]', postsNode)[0];
     this.minPostId = Number(last.id.match(/\d+/)[0]);
+    if (this.curUri.indexOf('/iphone') != -1)
+      this.nextUri = '/iphone?offset=' + this.minPostId;
+    else if (this.curUri.indexOf('/show/') != -1)
+      this.nextUri = this.baseUri + (this.baseNum + 1);
+    else
+      this.nextUri = this.nextLinkNode.href;
   }
-  this.auto = true;
   this.inProgress = false;
   this.failure = false;
   this.nextLinkNode.addEventListener('click', function(event) {
@@ -425,11 +426,9 @@ Pager.prototype.loadNext = function() {
 
       if (self.state == 'load') {
         var nextUri;
-        if (self.nextUri.indexOf('/show/') == -1) {
-          var nextNodeExp = /<a [^>]*href="([^"]*)"[^>]*>Next page &#8594;<\/a>/; //"
-          nextUri = (text.match(nextNodeExp) == null) ? null : (self.nextLinkNode.href = RegExp.$1);
-        }
-        else {
+        if (self.nextUri.indexOf('/iphone') != -1)
+          nextUri = '/iphone?offset=' + self.minPostId;
+        else if (self.nextUri.indexOf('/show/') != -1) {
           var curNum;
           if (self.nextUri.match(/^(?:.*\/)(\d+)$/))
             curNum = Number(RegExp.$1);
@@ -437,9 +436,14 @@ Pager.prototype.loadNext = function() {
             curNum = 1;
           nextUri = self.baseUri + (curNum + 1);
         }
+        else {
+          var nextNodeExp = /<a [^>]*href="([^"]*)"[^>]*>Next page &#8594;<\/a>/; //"
+          nextUri = (text.match(nextNodeExp) == null) ? null : RegExp.$1;
+        }
         window.location.hash = encodeURIComponent(self.curUri.match(/(?:http:\/\/www\.tumblr\.com)?(\/.*)/)[1]);
         self.curUri = self.nextUri;
         self.nextUri = nextUri;
+        self.nextLinkNode.href = nextUri;
       }
       else
         self.nextUri = self.baseUri + self.nextNum;
