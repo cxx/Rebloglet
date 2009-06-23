@@ -5,6 +5,7 @@
 // @include        http://www.tumblr.com/dashboard*
 // @include        http://www.tumblr.com/tumblelog/*
 // @include        http://www.tumblr.com/likes*
+// @include        http://www.tumblr.com/liked/by/*
 // @include        http://www.tumblr.com/drafts*
 // @include        http://www.tumblr.com/queue*
 // @include        http://www.tumblr.com/twitter*
@@ -14,7 +15,7 @@
 // @exclude        http://www.tumblr.com/tumblelog/*/followers
 // @copyright      2009, cxx <http://tumblr.g.hatena.ne.jp/cxx/20090406/1238998308>
 // @license        GPLv3 or later <http://www.gnu.org/licenses/gpl.html>
-// @version        0.3.20090621.0
+// @version        0.3.20090623.0
 // ==/UserScript==
 
 (function(){
@@ -281,15 +282,17 @@ Form.prototype.show = function() {
 function Pager() {
   var self = this;
   if (isIPhoneView) {
-    this.paginationNode = $('footer');
-    this.nextLinkNode = $('footer');
+    this.nextLinkNode = $x('//a[./div[@id="load_more_posts"]]')[0];
+    this.paginationNode = this.nextLinkNode;
     this.postsExp = /<!-- START POSTS -->([\s\S]*)<!-- END POSTS -->/;
   }
   else {
-    this.paginationNode = $('pagination');
     this.nextLinkNode = $x('./a[contains(text(),"Next page")]', this.paginationNode)[0];
+    this.paginationNode = $('pagination');
     this.postsExp = /<!-- Posts -->\s*<ol id="posts" ?>([\s\S]*)<\/ol>\s*<!-- No posts found -->/;
   }
+  nextLinkNode = this.nextLinkNode;
+  paginationNode = this.paginationNode;
   this.curUri = window.location.pathname;
   if (this.curUri.indexOf('/dashboard') == 0)
     this.baseUri = '/dashboard/';
@@ -313,8 +316,8 @@ function Pager() {
     window.setTimeout(function() { self.loadNext(); }, 0);
   }
   else {
-    $x('./text()', postsNode).forEach(function(text) { postsNode.removeChild(text); });
-    var last = $x('./*[last()]', postsNode)[0];
+    $x('id("posts")/text()').forEach(function(text) { postsNode.removeChild(text); });
+    var last = $x('id("posts")/*[last()]')[0];
     this.minPostId = Number(last.id.match(/\d+/)[0]);
     if (this.curUri.indexOf('/iphone') != -1)
       this.nextUri = '/iphone?offset=' + this.minPostId;
@@ -330,6 +333,15 @@ function Pager() {
       event.preventDefault();
   }, false);
   window.addEventListener('scroll', Pager.scrollListener, false);
+  if (isIPhoneView) {
+    this.addListener(function(posts) {
+      posts.forEach(function(post) {
+        var photo = $x('.//a[./img[@class="photo"]]', post)[0];
+        if (photo)
+          photo.onclick();
+      });
+    });
+  }
 }
 
 Pager.scrollListener = function() {
@@ -463,8 +475,7 @@ Pager.prototype.loadNext = function() {
 };
 
 Pager.prototype.removePassedPosts = function() {
-  var postsNode = $('posts');
-  var posts = $x('id("posts")/*[contains(@class,"post")][not(contains(@class,"controls"))][not(contains(@class,"history"))]');
+  var posts = $x('id("posts")/*[contains(@id,"post")][not(contains(@class,"controls"))][not(contains(@class,"history"))]');
   var maxPostNum = 23;
   var removedNum = Math.max(posts.length - maxPostNum, 0);
   if (removedNum > 0) {
@@ -504,7 +515,7 @@ PostIterator.prototype.getCurrent = function() {
 };
 
 PostIterator.prototype.prev = function() {
-  var xpath = '(preceding-sibling::*[contains(@class,"post")][not(contains(@class,"controls"))])[last()]';
+  var xpath = '(preceding-sibling::*[contains(@id,"post")][not(contains(@class,"controls"))])[last()]';
   if (this.current) {
     var prev = $x(xpath, this.current)[0];
     if (prev) {
@@ -516,7 +527,7 @@ PostIterator.prototype.prev = function() {
 };
 
 PostIterator.prototype.next = function() {
-  var xpath = 'following-sibling::*[contains(@class,"post")][not(contains(@class,"controls"))]';
+  var xpath = 'following-sibling::*[contains(@id,"post")][not(contains(@class,"controls"))]';
   if (this.current) {
     var followings = $x(xpath, this.current);
     if (followings.length <= 10)
@@ -538,7 +549,7 @@ PostIterator.prototype.setCurrent = function(current) {
 PostIterator.prototype.refresh = function() {
   if (this.current && this.current.offsetTop == window.pageYOffset)
     return;
-  var posts = $x('id("posts")/*[contains(@class,"post")][not(contains(@class,"controls"))]');
+  var posts = $x('id("posts")/*[contains(@id,"post")][not(contains(@class,"controls"))]');
   for (var i = 0; i < posts.length; i++)
     if (posts[i].offsetTop >= window.pageYOffset - 5
       || posts[i].offsetTop + posts[i].offsetHeight >= window.pageYOffset + window.innerHeight / 2)
@@ -706,7 +717,8 @@ ActionDispatcher.actions = [
           var button = document.createElement('div');
           button.textContent = action.longName;
           button.className = 'choice_item';
-          button.style.padding = (isIPhoneView ? '16' : '8') + 'px 0';
+//          button.style.padding = (isIPhoneView ? '16' : '8') + 'px 0';
+          button.style.padding = '8px 0';
           button.style.margin = Math.floor(viewWidth * 0.05) + 'px 0';
           button.style.fontSize = Math.floor(viewWidth * 0.1) + 'px';
           button.addEventListener('click', function(event) {
@@ -864,17 +876,30 @@ Post.prototype.reblog = function(options) {
 Post.prototype.like = function() {
   var post = this.element;
   if (isIPhoneView) {
-    var likeText = $(post.id.replace('post', 'post_like_text'));
-    if (likeText)
-      likeText.parentNode.onclick();
+    var control = $(post.id.replace('post', 'post_controls'));
+    if (!control)
+      return;
+    var button = $x('.//button[.//*[@id="' + post.id.replace('post', 'post_like_text') + '"]]', control)[0];
+    if (button)
+      button.onclick();
   }
   else
     submit_like(Number(post.id.replace('post', '')), false);
 };
 
 Post.prototype.getPermalink = function() {
-  var permalink = $x('.//a[descendant-or-self::*[@class="permalink"]]', this.element)[0];
-  return permalink ? permalink.href : null;
+  var post = this.element;
+  if (isIPhoneView) {
+    var autherNode = $x('.//div[@class="meta"]/div/text()', post)[0];
+    if (autherNode)
+      return 'http://' + autherNode.nodeValue.slice(0, -1) + '.tumblr.com/post/' + post.id.match(/\d+/)[0];
+    else
+      return null;
+  }
+  else {
+    var permalink = $x('.//a[descendant-or-self::*[@class="permalink"]]', this.element)[0];
+    return permalink ? permalink.href : null;
+  }
 };
 
 Post.prototype.getSourceLink = function() {
@@ -882,7 +907,7 @@ Post.prototype.getSourceLink = function() {
   var body;
   var type;
   if (isIPhoneView) {
-    body = $x('./div[starts-with(@class,"post ")]', post)[0];
+    body = $x('.//div[starts-with(@class,"post ")]', post)[0];
     if (!body)
       return this.getPermalink();
     type = body.className.match(/(\w+)_post/)[1];
@@ -1099,6 +1124,7 @@ function History() {
       for (var i = 0; i < posts.length; i++) {
         if (posts[i].id.match(/(\d+)/) && Number(RegExp.$1) <= self.history[0].id) {
           var li = document.createElement('li');
+          li.id = 'post_history_' + self.history[0].id;
           li.className = 'post history';
           li.style.padding = '0';
           var div = document.createElement('div');
@@ -1136,6 +1162,7 @@ var paginationNode = isIPhoneView ? $('footer') : $('pagination');
 var viewWidth = isIPhoneView ? 320 : 665;
 
 var styleSheet = (new StyleSheet())
+  .add('.bubble td { max-width:' + (viewWidth - 78) + 'px; }')
   .add('.background { position: absolute; top: 0; left: 0; width: 100%; background-color: #000; opacity: 0.5; }')
   .add('.cover { position: absolute; left: 0; width: 100%; opacity: 0; }')
   .add('.dialog { position: absolute; left: 0; background-color: #fff; }')
