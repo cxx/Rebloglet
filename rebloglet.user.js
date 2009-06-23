@@ -15,7 +15,7 @@
 // @exclude        http://www.tumblr.com/tumblelog/*/followers
 // @copyright      2009, cxx <http://tumblr.g.hatena.ne.jp/cxx/20090406/1238998308>
 // @license        GPLv3 or later <http://www.gnu.org/licenses/gpl.html>
-// @version        0.3.20090623.0
+// @version        0.3.20090624.0
 // ==/UserScript==
 
 (function(){
@@ -35,7 +35,7 @@ function $x(xpath, context) {
   var retval = [];
   var result = document.evaluate(xpath, context, null, XPathResult.ORDERED_NODE_ITERATOR_TYPE, null);
   var node;
-  while ((node = result.iterateNext()) != null)
+  while (node = result.iterateNext())
     retval.push(node);
   return retval;
 }
@@ -485,7 +485,7 @@ Pager.prototype.removePassedPosts = function() {
     var elem;
     for (var i = 0; (elem = postsNode.childNodes[i]) != remain && elem != current; i++)
       removed.push(elem);
-    var padding = document.createElement('li');
+    var padding = document.createElement(isIPhoneView ? 'div' : 'li');
     padding.className = 'padding';
     postsNode.insertBefore(padding, postsNode.firstChild);
     removed.forEach(function(elem) { padding.appendChild(elem); });
@@ -717,7 +717,6 @@ ActionDispatcher.actions = [
           var button = document.createElement('div');
           button.textContent = action.longName;
           button.className = 'choice_item';
-//          button.style.padding = (isIPhoneView ? '16' : '8') + 'px 0';
           button.style.padding = '8px 0';
           button.style.margin = Math.floor(viewWidth * 0.05) + 'px 0';
           button.style.fontSize = Math.floor(viewWidth * 0.1) + 'px';
@@ -1123,15 +1122,15 @@ function History() {
     if (self.history.length > 0 && self.history[0].id >= minId) {
       for (var i = 0; i < posts.length; i++) {
         if (posts[i].id.match(/(\d+)/) && Number(RegExp.$1) <= self.history[0].id) {
-          var li = document.createElement('li');
-          li.id = 'post_history_' + self.history[0].id;
-          li.className = 'post history';
-          li.style.padding = '0';
+          var elem = document.createElement(isIPhoneView ? 'div' : 'li');
+          elem.id = 'post_history_' + self.history[0].id;
+          elem.className = 'post history';
+          elem.style.padding = '0';
           var div = document.createElement('div');
           div.textContent = new Date(self.history[0].time);
           div.style.backgroundColor = '#ff0';
-          li.appendChild(div);
-          postsNode.insertBefore(li, posts[i]);
+          elem.appendChild(div);
+          postsNode.insertBefore(elem, posts[i]);
           self.history.shift();
           if (self.history.length == 0)
             break;
