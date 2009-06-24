@@ -745,7 +745,7 @@ ActionDispatcher.actions.forEach(function(action) {
 ActionDispatcher.listenerBasic = function(event) {
   var target = event.target;
 
-  if ($x('ancestor-or-self::a[@href="#"] | ancestor::form', target)[0])
+  if (target.tagName != 'IMG' && $x('ancestor-or-self::a[@href="#"] | ancestor::form', target)[0])
     return;
 
   if (target.tagName == 'A') {
@@ -763,10 +763,11 @@ ActionDispatcher.listenerBasic = function(event) {
     return;
   }
 
-  var post = $x('ancestor-or-self::li[parent::*[@id="posts"]]', target)[0];
+  var post = $x('ancestor-or-self::*[contains(@id,"post")][parent::*[@id="posts"]]', target)[0];
   if (post) {
     (new Post(post)).reblog();
     event.preventDefault();
+    event.stopPropagation();
   }
 };
 
