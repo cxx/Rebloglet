@@ -294,8 +294,11 @@ function Pager() {
   nextLinkNode = this.nextLinkNode;
   paginationNode = this.paginationNode;
 
-  this.curUri = window.location.pathname;
-  this.curUri.match(/^(\/dashboard)(?:\/(\d+))?/) || this.curUri.match(/^(.*?)(?:\/(\d+))?\/?$/);
+  var curUri = this.curUri = window.location.pathname.replace(/\/$/, '');
+  curUri.match(/(.*\/(?:search|filter)\/[^\/]*)(?:\/(\d+))?$/)
+    || curUri.match(/^(\/dashboard)(?:\/(\d+))?/)
+    || curUri.match(/^(\/(?:tumblelog|liked\/by)\/[^\/]+)(?:\/(\d+))?$/)
+    || curUri.match(/^(.*?)(?:\/(\d+))?\/?$/);
   this.baseUri = RegExp.$1;
   this.baseNum = Number(RegExp.$2 || 1);
 
