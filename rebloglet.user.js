@@ -337,7 +337,7 @@ function Pager() {
     this.addListener(function(posts) {
       posts.forEach(function(post) {
         var photo = $x('.//a[./img[@class="photo"]]', post)[0];
-        if (photo)
+        if (photo && photo.onclick)
           photo.onclick();
       });
     });
