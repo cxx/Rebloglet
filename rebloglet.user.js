@@ -287,23 +287,18 @@ function Pager() {
     this.postsExp = /<!-- START POSTS -->([\s\S]*)<!-- END POSTS -->/;
   }
   else {
-    this.nextLinkNode = $x('./a[contains(text(),"Next page")]', this.paginationNode)[0];
     this.paginationNode = $('pagination');
+    this.nextLinkNode = $x('./a[contains(text(),"Next page")]', this.paginationNode)[0];
     this.postsExp = /<!-- Posts -->\s*<ol id="posts" ?>([\s\S]*)<\/ol>\s*<!-- No posts found -->/;
   }
   nextLinkNode = this.nextLinkNode;
   paginationNode = this.paginationNode;
+
   this.curUri = window.location.pathname;
-  if (this.curUri.indexOf('/dashboard') == 0)
-    this.baseUri = '/dashboard/';
-  else if (this.curUri.match(/^(.*\/)(\d+)$/)) {
-    this.baseUri = RegExp.$1;
-    this.baseNum = Number(RegExp.$2);
-  }
-  else {
-    this.baseUri = this.curUri + (this.curUri.slice(-1) == '/' ? '' : '/');
-    this.baseNum = 1;
-  }
+  this.curUri.match(/^(\/dashboard)(?:\/(\d+))?/) || this.curUri.match(/^(.*?)(?:\/(\d+))?\/?$/);
+  this.baseUri = RegExp.$1;
+  this.baseNum = Number(RegExp.$2 || 1);
+
   this.state = 'load';
   this.listeners = [];
   if (window.location.hash) {
@@ -319,12 +314,17 @@ function Pager() {
     $x('id("posts")/text()').forEach(function(text) { postsNode.removeChild(text); });
     var last = $x('id("posts")/*[last()]')[0];
     this.minPostId = Number(last.id.match(/\d+/)[0]);
-    if (this.curUri.indexOf('/iphone') != -1)
-      this.nextUri = '/iphone?offset=' + this.minPostId;
-    else if (this.curUri.indexOf('/show/') != -1)
-      this.nextUri = this.baseUri + (this.baseNum + 1);
-    else
-      this.nextUri = this.nextLinkNode.href;
+    switch (this.baseUri) {
+    case '/dashboard':
+      this.nextUri = '/dashboard/' + (this.baseNum + 1) + '/' + this.minPostId;
+      break;
+    case '/iphone':
+      this.nextUri = '/iphone?offset=' + this.minPostId + '&page=' + (this.baseNum + 1);
+      break;
+    default:
+      this.nextUri = this.baseUri + '/' + (this.baseNum + 1) + '?offset=' + this.minPostId;
+      break;
+    }
   }
   this.inProgress = false;
   this.failure = false;
@@ -438,19 +438,17 @@ Pager.prototype.loadNext = function() {
 
       if (self.state == 'load') {
         var nextUri;
-        if (self.nextUri.indexOf('/iphone') != -1)
-          nextUri = '/iphone?offset=' + self.minPostId;
-        else if (self.nextUri.indexOf('/show/') != -1) {
-          var curNum;
-          if (self.nextUri.match(/^(?:.*\/)(\d+)$/))
-            curNum = Number(RegExp.$1);
-          else
-            curNum = 1;
-          nextUri = self.baseUri + (curNum + 1);
-        }
-        else {
-          var nextNodeExp = /<a [^>]*href="([^"]*)"[^>]*>Next page &#8594;<\/a>/; //"
-          nextUri = (text.match(nextNodeExp) == null) ? null : RegExp.$1;
+        self.baseNum += 1;
+        switch (self.baseUri) {
+        case '/dashboard':
+          nextUri = '/dashboard/' + (self.baseNum + 1) + '/' + self.minPostId;
+          break;
+        case '/iphone':
+          nextUri = '/iphone?offset=' + self.minPostId + '&page=' + (self.baseNum + 1);
+          break;
+        default:
+          nextUri = self.baseUri + '/' + (self.baseNum + 1) + '?offset=' + self.minPostId;
+          break;
         }
         window.location.hash = encodeURIComponent(self.curUri.match(/(?:http:\/\/www\.tumblr\.com)?(\/.*)/)[1]);
         self.curUri = self.nextUri;
