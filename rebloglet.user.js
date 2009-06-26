@@ -337,9 +337,14 @@ function Pager() {
   if (isIPhoneView) {
     this.addListener(function(posts) {
       posts.forEach(function(post) {
-        var photo = $x('.//a[./img[@class="photo"]]', post)[0];
-        if (photo && photo.onclick)
-          photo.onclick();
+        var photo = $x('.//img[@class="photo"]', post)[0];
+        if (photo && post.innerHTML.match(/toggle_photo_thumbnail\(this, '([^']+)'/)) { //'
+          photo.style.width = 'auto';
+          photo.style.height = 'auto';
+          photo.style.maxWidth = (viewWidth - 86) + 'px';
+          photo.style.marginLeft = '0';
+          photo.src = RegExp.$1;
+        }
       });
     });
   }
