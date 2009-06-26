@@ -15,7 +15,7 @@
 // @exclude        http://www.tumblr.com/tumblelog/*/followers
 // @copyright      2009, cxx <http://tumblr.g.hatena.ne.jp/cxx/20090406/1238998308>
 // @license        GPLv3 or later <http://www.gnu.org/licenses/gpl.html>
-// @version        0.3.20090624.0
+// @version        0.3.20090626.0
 // ==/UserScript==
 
 (function(){
@@ -74,7 +74,7 @@ function doXMLHttpRequest(options) {
     if (timeoutId)
       window.clearTimeout(timeoutId);
     if (client.readyState == 4) {
-      if (client.status >= 200 && client.status < 300) {
+      if (200 <= client.status && client.status < 300) {
         if (typeof options.onLoad == 'function')
           options.onLoad(client);
       }
@@ -317,18 +317,16 @@ function Pager() {
     $x('id("posts")/text()').forEach(function(text) { postsNode.removeChild(text); });
     var last = $x('id("posts")/*[last()]')[0];
     this.minPostId = Number(last.id.match(/\d+/)[0]);
-    switch (this.baseUri) {
-    case '/dashboard':
+    if (this.baseUri == '/dashboard')
       this.nextUri = '/dashboard/' + (this.baseNum + 1) + '/' + this.minPostId;
-      break;
-    case '/iphone':
+    else if (this.baseUri == '/iphone')
       this.nextUri = '/iphone?offset=' + this.minPostId + '&page=' + (this.baseNum + 1);
-      break;
-    default:
+    else if (this.baseUri.indexOf('/popular') == 0)
+      this.nextUri = null;
+    else
       this.nextUri = this.baseUri + '/' + (this.baseNum + 1) + '?offset=' + this.minPostId;
-      break;
-    }
   }
+
   this.inProgress = false;
   this.failure = false;
   this.nextLinkNode.addEventListener('click', function(event) {
@@ -467,9 +465,11 @@ Pager.prototype.loadNext = function() {
       self.inProgress = false;
       self.failure = false;
     },
-    onError: function() {
+    onError: function(response) {
       self.inProgress = false;
       self.failure = true;
+      if (400 <= response.status && response.status < 500)
+        self.nextUri = null;
     }
   });
   return true;
