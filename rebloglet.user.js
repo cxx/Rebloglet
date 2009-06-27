@@ -447,6 +447,8 @@ Pager.prototype.loadNext = function() {
         var fragment = document.createDocumentFragment();
         newPosts.forEach(function(post) { fragment.appendChild(post); });
         postsNode.appendChild(fragment);
+        if (!postIterator.getCurrent())
+          postIterator.setCurrent(postsNode.firstChild);
         self.listeners.forEach(function(listener){ listener(newPosts, self.minPostId); });
         window.setTimeout(function() { self.removePassedPosts(); }, 0);
       }
@@ -859,9 +861,13 @@ ActionDispatcher.prototype.enableExclusive = function(enable) {
   if (this.exclusiveEnabled == enable)
     return;
 
-  var style = enable ? 'none' : 'block';
+  var style = 'block';
+  if (enable) {
+    style = 'none';
+    postsNode.style.minHeight = '865px'; // 416
+    this.scrollListener();
+  }
   $x('id("posts")/*[not(contains(@class,"controls"))]').forEach(function(elem) { elem.style.display = style; });
-  postsNode.style.minHeight = '865px'; // 416
   if (this.current)
     this.current.style.display = 'block';
   postIterator.enableAutoRefresh(!enable);
