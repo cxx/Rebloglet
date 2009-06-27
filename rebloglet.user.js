@@ -1197,7 +1197,9 @@ var styleSheet = (new StyleSheet())
   .add('.choice_item { width: 100%; color: #000; background-color: #ccc; }')
   .add('.padding { padding: 0; margin: 0; }');
 
-if (!isIPhoneView) {
+if (isIPhoneView)
+  $('viewport').content = $('viewport').content.replace('user-scalable = no', 'user-scalable = yes');
+else {
   Ajax.PeriodicalUpdater.prototype.onTimerEvent = function() {};
   document.body.onclick = null;
 
