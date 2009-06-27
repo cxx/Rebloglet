@@ -706,9 +706,9 @@ ActionDispatcher.actions = [
   },
   {
     name: 'like',
-    longName: 'like',
+    longName: 'like/unlike',
     action: function(post) {
-      post.like();
+      post.toggleLike();
     }
   },
   {
@@ -879,18 +879,21 @@ Post.prototype.reblog = function(options) {
     reblog(RegExp.$1, options);
 };
 
-Post.prototype.like = function() {
+Post.prototype.toggleLike = function() {
   var post = this.element;
   if (isIPhoneView) {
     var control = $(post.id.replace('post', 'post_controls'));
-    if (!control)
-      return;
-    var button = $x('.//button[.//*[@id="' + post.id.replace('post', 'post_like_text') + '"]]', control)[0];
-    if (button)
-      button.onclick();
+    if (control) {
+      var button = $x('.//button[.//*[@id="' + post.id.replace('post', 'post_like_text') + '"]]', control)[0];
+      if (button)
+        button.onclick();
+    }
   }
-  else
-    submit_like(Number(post.id.replace('post', '')), false);
+  else {
+    var button = $x('.//form[contains(@action,"like")][@style=""]', post)[0];
+    if (button)
+      button.onsubmit();
+  }
 };
 
 Post.prototype.getPermalink = function() {
