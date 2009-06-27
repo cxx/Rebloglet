@@ -337,6 +337,15 @@ function Pager() {
   if (isIPhoneView) {
     this.addListener(function(posts) {
       posts.forEach(function(post) {
+        var heart = $(post.id.replace('post_', 'post_heart_'));
+        if (heart) {
+          var meta = $x('.//div[@class="meta"]', post)[0];
+          if (meta) {
+            heart.style.cssFloat = 'right';
+            heart.style.marginLeft = '10px';
+            meta.insertBefore(heart, meta.firstChild);
+          }
+        }
         var photo = $x('.//img[@class="photo"]', post)[0];
         if (photo && post.innerHTML.match(/toggle_photo_thumbnail\(this, '([^']+)'/)) { //'
           photo.style.width = 'auto';
@@ -894,6 +903,10 @@ Post.prototype.toggleLike = function() {
     if (button)
       button.onsubmit();
   }
+};
+
+Post.prototype.getPostId = function() {
+  return this.element.id.match(/\d+/)[0];
 };
 
 Post.prototype.getPermalink = function() {
