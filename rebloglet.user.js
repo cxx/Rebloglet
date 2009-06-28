@@ -593,7 +593,7 @@ function ActionDispatcher() {
   prefs.addListener(function() {
     self.enableQuad(prefs.get('enableActions') == 'true');
     [ 'topLeft', 'topRight', 'bottomLeft', 'bottomRight' ].forEach(function(section) {
-      self[section] = ActionDispatcher.actions[prefs.get(section + 'Action')];
+      self[section] = (prefs.get(section + 'Action') || 'nothing').split(',').map(function(name) { return ActionDispatcher.actions[name]; });
     });
     var keys = null;
     if (prefs.get('enableKeys') == 'true') {
@@ -841,7 +841,8 @@ ActionDispatcher.prototype.enableQuad = function(enable) {
       var y = event.pageY - window.pageYOffset;
       var vertical = (y < window.innerHeight / 2) ? 'top' : 'bottom';
       var horizontal = (x < window.innerWidth / 2) ? 'Left' : 'Right';
-      self[vertical + horizontal].action(new Post(postIterator.getCurrent()));
+      var post = new Post(postIterator.getCurrent());
+      self[vertical + horizontal].forEach(function(a) { a.action(post); });
     }, false);
     window.addEventListener('scroll', this.scrollListener, false);
     ($('left_column') || $('posts')).removeEventListener('click', ActionDispatcher.listenerBasic, true);
@@ -1076,10 +1077,11 @@ Preferences.prototype.showDialog = function() {
     +   '<table>'
     +     [ 'top left', 'top right', 'bottom left', 'bottom right' ].map(function(section) {
             var name = section.replace(/ ./, function(s) { return s.charAt(1).toUpperCase(); }) + 'Action';
-            return '<tr><td><label for="' + name + '">' + section + '</label></td><td><select name="' + name + '">'
+            var selectedActions = self.get(name).split(',');
+            return '<tr><td><label for="' + name + '">' + section + '</label></td><td><select name="' + name + '" multiple="multiple">'
               + ActionDispatcher.actions.map(function(action) {
                   return '<option value="' + action.name + '"'
-                    + (self.get(name) == action.name ? ' selected="selected"' : '') + '>' + action.longName + '</option>';
+                    + (selectedActions.some(function(a) { return a == action.name; }) ? ' selected="selected"' : '') + '>' + action.longName + '</option>';
                 }).join('')
               + '</select></td></tr>';
           }).join('')
@@ -1116,6 +1118,13 @@ Preferences.prototype.showDialog = function() {
         break;
       case 'select-one':
         self.set(elem.name, elem.value);
+        break;
+      case 'select-multiple':
+        var selected = [];
+        for (var j = 0; j < elem.length; j++)
+          if (elem.options[j].selected)
+            selected.push(elem.options[j].value);
+        self.set(elem.name, selected.join());
         break;
       }
     }
