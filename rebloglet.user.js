@@ -374,6 +374,7 @@ Pager.prototype.loadNext = function() {
     return false;
   this.inProgress = true;
   this.failure = false;
+
   doXMLHttpRequest({
     uri: this.nextUri,
     onLoad: function(response) {
@@ -381,103 +382,32 @@ Pager.prototype.loadNext = function() {
       var div = document.createElement('div');
       div.innerHTML = text.match(self.postsExp)[1];
       var newPosts = $x('./*', div);
-      for (var i = newPosts.length - 1; i >= 0; i--)
-        if (newPosts[i].id.match(/(\d+)/) && Number(RegExp.$1) >= self.minPostId)
-          break;
+      self.minPostId = Number(newPosts[newPosts.length - 1].id.match(/\d+/)[0]);
+      var fragment = document.createDocumentFragment();
+      newPosts.forEach(function(post) { fragment.appendChild(post); });
+      postsNode.appendChild(fragment);
+      if (!postIterator.getCurrent())
+        postIterator.setCurrent($x('id("posts")/*[contains(@id,"post")][1]')[0]);
+      self.listeners.forEach(function(listener){ listener(newPosts, self.minPostId); });
+      window.setTimeout(function() { self.removePassedPosts(); }, 0);
 
-      var cont = false;
-      var append = false;
-      if (i == newPosts.length - 1) {
-        cont = true;
-        if (Number(RegExp.$1) == self.minPostId)
-          self.state = 'load';
-        else {
-          switch (self.state) {
-          case 'load':
-            if (self.curUri.match(/^(?:.*\/)(\d+)$/))
-              self.baseNum = Number(RegExp.$1);
-            else
-              self.baseNum = 1;
-            self.nextNum = self.baseNum + 1;
-            self.step = 1;
-            self.state = 'find_upper';
-          case 'find_upper':
-            self.lower = self.nextNum;
-            self.step *= 2;
-            self.nextNum = self.baseNum + self.step;
-            break;
-          case 'find':
-            self.lower = self.nextNum;
-            if (self.upper - self.lower == 1)
-              self.state = 'load';
-            else
-              self.nextNum = Math.floor((self.lower + self.upper) / 2);
-            break;
-          }
-        }
+      var nextUri;
+      self.baseNum += 1;
+      switch (self.baseUri) {
+      case '/dashboard':
+        nextUri = '/dashboard/' + (self.baseNum + 1) + '/' + self.minPostId;
+        break;
+      case '/iphone':
+        nextUri = '/iphone?offset=' + self.minPostId + '&page=' + (self.baseNum + 1);
+        break;
+      default:
+        nextUri = self.baseUri + '/' + (self.baseNum + 1) + '?offset=' + self.minPostId;
+        break;
       }
-      else if (i == -1) {
-        switch (self.state) {
-        case 'load':
-          append = true;
-          break;
-        case 'find_upper':
-          self.state = 'find';
-        case 'find':
-          self.upper = self.nextNum;
-          if (self.upper - self.lower == 1) {
-            append = true;
-            self.state = 'load';
-          }
-          else {
-            cont = true;
-            self.nextNum = Math.floor((self.lower + self.upper) / 2);
-          }
-          break;
-        }
-      }
-      else {
-        newPosts.splice(0, i + 1);
-        append = true;
-        self.state = 'load';
-      }
-
-      if (append) {
-        self.minPostId = Number(newPosts[newPosts.length - 1].id.match(/\d+/)[0]);
-        var fragment = document.createDocumentFragment();
-        newPosts.forEach(function(post) { fragment.appendChild(post); });
-        postsNode.appendChild(fragment);
-        if (!postIterator.getCurrent())
-          postIterator.setCurrent(postsNode.firstChild);
-        self.listeners.forEach(function(listener){ listener(newPosts, self.minPostId); });
-        window.setTimeout(function() { self.removePassedPosts(); }, 0);
-      }
-
-      if (self.state == 'load') {
-        var nextUri;
-        self.baseNum += 1;
-        switch (self.baseUri) {
-        case '/dashboard':
-          nextUri = '/dashboard/' + (self.baseNum + 1) + '/' + self.minPostId;
-          break;
-        case '/iphone':
-          nextUri = '/iphone?offset=' + self.minPostId + '&page=' + (self.baseNum + 1);
-          break;
-        default:
-          nextUri = self.baseUri + '/' + (self.baseNum + 1) + '?offset=' + self.minPostId;
-          break;
-        }
-        window.location.hash = encodeURIComponent(self.curUri.match(/(?:http:\/\/www\.tumblr\.com)?(\/.*)/)[1]);
-        self.curUri = self.nextUri;
-        self.nextUri = nextUri;
-        self.nextLinkNode.href = nextUri;
-      }
-      else
-        self.nextUri = self.baseUri + self.nextNum;
-
-      if (cont)
-        window.setTimeout(function() { self.loadNext(); }, 0);
-
+      window.location.hash = encodeURIComponent(self.curUri.match(/(?:http:\/\/www\.tumblr\.com)?(\/.*)/)[1]);
+      self.curUri = self.nextUri;
+      self.nextUri = nextUri;
+      self.nextLinkNode.href = nextUri;
       self.inProgress = false;
       self.failure = false;
     },
