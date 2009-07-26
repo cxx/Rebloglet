@@ -15,7 +15,7 @@
 // @exclude        http://www.tumblr.com/tumblelog/*/followers
 // @copyright      2009, cxx <http://tumblr.g.hatena.ne.jp/cxx/20090406/1238998308>
 // @license        GPLv3 or later <http://www.gnu.org/licenses/gpl.html>
-// @version        0.3.20090626.0
+// @version        0.3.20090726.0
 // ==/UserScript==
 
 (function(){
@@ -347,7 +347,7 @@ function Pager() {
           }
         }
         var photo = $x('.//img[@class="photo"]', post)[0];
-        if (photo && post.innerHTML.match(/toggle_photo_thumbnail\(this, '([^']+)'/)) { //'
+        if (photo && post.innerHTML.match(/toggle_photo_thumbnail\(this, \['([^']+)'/)) { //'
           photo.style.width = 'auto';
           photo.style.height = 'auto';
           photo.style.maxWidth = (viewWidth - 86) + 'px';
