@@ -647,7 +647,7 @@ ActionDispatcher.actions = [
     }
   },
   {
-    name: 'high-res',
+    name: 'photo',
     longName: 'open high-res photo',
     action: function(post) {
       window.open(post.getPhotoLink());
@@ -940,6 +940,7 @@ function Preferences(callback) {
     keyForm: 'T',
     keyOpen: 'v',
     keySource: 'V',
+    keyPhoto: 'P',
     keyLike: 'l',
     history: '[{ id: 0, time: 0 }]',
     enableExclusive: 'false',
