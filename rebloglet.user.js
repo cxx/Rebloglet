@@ -12,10 +12,11 @@
 // @include        http://www.tumblr.com/popular*
 // @include        http://www.tumblr.com/show/*
 // @include        http://www.tumblr.com/filter/*
+// @include        http://www.tumblr.com/tagged/*
 // @exclude        http://www.tumblr.com/tumblelog/*/followers
 // @copyright      2009, cxx <http://tumblr.g.hatena.ne.jp/cxx/20090406/1238998308>
-// @license        GPLv3 or later <http://www.gnu.org/licenses/gpl.html>
-// @version        0.3.20090726.0
+// @license        Public domain
+// @version        0.3.20090822.0
 // ==/UserScript==
 
 (function(){
@@ -646,6 +647,13 @@ ActionDispatcher.actions = [
     }
   },
   {
+    name: 'high-res',
+    longName: 'open high-res photo',
+    action: function(post) {
+      window.open(post.getPhotoLink());
+    }
+  },
+  {
     name: 'like',
     longName: 'like/unlike',
     action: function(post) {
@@ -795,7 +803,7 @@ ActionDispatcher.prototype.enableExclusive = function(enable) {
   var style = 'block';
   if (enable) {
     style = 'none';
-    postsNode.style.minHeight = '865px'; // 416
+    postsNode.style.minHeight = '865px'; // 416 for /iphone
     this.scrollListener();
   }
   $x('id("posts")/*[not(contains(@class,"controls"))]').forEach(function(elem) { elem.style.display = style; });
@@ -847,18 +855,8 @@ Post.prototype.getPostId = function() {
 };
 
 Post.prototype.getPermalink = function() {
-  var post = this.element;
-  if (isIPhoneView) {
-    var autherNode = $x('.//div[@class="meta"]/div/text()', post)[0];
-    if (autherNode)
-      return 'http://' + autherNode.nodeValue.slice(0, -1) + '.tumblr.com/post/' + post.id.match(/\d+/)[0];
-    else
-      return null;
-  }
-  else {
-    var permalink = $x('.//a[descendant-or-self::*[@class="permalink"]]', this.element)[0];
-    return permalink ? permalink.href : null;
-  }
+  var permalink = $x('.//a[descendant-or-self::*[@class="permalink"]] | .//div[@class="meta"]//a', this.element)[0];
+  return permalink ? permalink.href : null;
 };
 
 Post.prototype.getSourceLink = function() {
@@ -894,6 +892,21 @@ Post.prototype.getSourceLink = function() {
     break;
   };
   return link ? link.href : this.getPermalink();
+};
+
+Post.prototype.getPhotoLink = function() {
+  var photo = $x('.//img[@class="photo" or @class="image"]', this.element)[0];
+  if (!photo)
+    return null;
+  if (photo.src.match(/(\w+)o1_500/)) {
+    var hash = RegExp.$1;
+    if (this.getPermalink().match(/^(http:\/\/[^/]+\/)(?:post\/)?(\d+)/))
+      return RegExp.$1 + 'photo/1280/' + RegExp.$2 + '/1/' + hash;
+    else
+      return photo.src;
+  }
+  else
+    return photo.src;
 };
 
 function Preferences(callback) {
