@@ -739,6 +739,8 @@ ActionDispatcher.prototype.setKeys = function(keys) {
   if (keys) {
     if (!this.keyListener) {
       this.keyListener = function(event) {
+				if (event.altKey || event.ctrlKey || event.metaKey)
+					return;
         var tag = event.target.tagName;
         if (tag == 'INPUT' || tag == 'TEXTAREA')
           return;
