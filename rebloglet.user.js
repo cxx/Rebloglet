@@ -8,8 +8,9 @@
 // @include        http://www.tumblr.com/liked/by/*
 // @include        http://www.tumblr.com/drafts*
 // @include        http://www.tumblr.com/queue*
+// @include        http://www.tumblr.com/submissions*
 // @include        http://www.tumblr.com/twitter*
-// @include        http://www.tumblr.com/popular*
+// @include        http://www.tumblr.com/popular/top
 // @include        http://www.tumblr.com/show/*
 // @include        http://www.tumblr.com/filter/*
 // @include        http://www.tumblr.com/tagged/*
