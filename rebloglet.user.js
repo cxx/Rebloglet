@@ -14,7 +14,6 @@
 // @include        http://www.tumblr.com/filter/*
 // @include        http://www.tumblr.com/tagged/*
 // @exclude        http://www.tumblr.com/tumblelog/*/followers
-// @copyright      2009, cxx <http://tumblr.g.hatena.ne.jp/cxx/20090406/1238998308>
 // @license        Public domain
 // @version        0.3.20090822.0
 // ==/UserScript==
