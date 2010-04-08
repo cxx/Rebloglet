@@ -798,7 +798,7 @@ ActionDispatcher.prototype.enableQuad = function(enable) {
 };
 
 ActionDispatcher.prototype.enableExclusive = function(enable) {
-  enable = enable && (this.quadEnabled || (hasKeyboard && this.keys));
+  enable = enable && (this.quadEnabled || this.keys);
   if (this.exclusiveEnabled == enable)
     return;
 
@@ -818,7 +818,7 @@ ActionDispatcher.prototype.enableExclusive = function(enable) {
 
 ActionDispatcher.prototype.refresh = function() {
   if (this.current) {
-    this.current.style.backgroundColor = (!this.exclusiveEnabled && (this.quadEnabled || (hasKeyboard && this.keys))) ? '#cfc' : '#fff';
+    this.current.style.backgroundColor = (!this.exclusiveEnabled && (this.quadEnabled || this.keys)) ? '#cfc' : '#fff';
     this.current.style.display = 'block';
   }
 };
@@ -933,7 +933,7 @@ function Preferences(callback) {
     topRightAction: 'prev',
     bottomLeftAction: 'reblog',
     bottomRightAction: 'next',
-    enableKeys: String(hasKeyboard),
+    enableKeys: 'true',
     keyPrev: 'k',
     keyNext: 'j',
     keyReblog: 't',
@@ -1037,17 +1037,17 @@ Preferences.prototype.showDialog = function() {
     + '<label for="enableExclusive">show one post at a time</label></p>'
     + '<p><input type="checkbox" name="hideLeftColumn" value="hideLeftColumn"' + (self.get('hideLeftColumn') == 'true' ? ' checked="checked"' : '') + '/>'
     + '<label for="hideLeftColumn">hide left column on normal Dashboard</label></p>'
-    + (hasKeyboard ? ('<p><input type="checkbox" name="enableKeys" value="enableKeys"' + (self.get('enableKeys') == 'true' ? ' checked="checked"' : '') + '/>'
-    + '<label for="enableKeys">use key bindings</label></p>') : '')
+    + '<p><input type="checkbox" name="enableKeys" value="enableKeys"' + (self.get('enableKeys') == 'true' ? ' checked="checked"' : '') + '/>'
+    + '<label for="enableKeys">use key bindings</label></p>'
     + '<p><fieldset>'
     +   '<table>'
-    +     '<tr><th>action</th><th>in choice</th>' + (hasKeyboard ? '<th>key</th>' : '') + '</tr>'
-    +     ActionDispatcher.actions.slice(hasKeyboard ? 0 : 2, -2).map(function(action) {
+    +     '<tr><th>action</th><th>in choice</th><th>key</th></tr>'
+    +     ActionDispatcher.actions.slice(0, -2).map(function(action) {
             var capi = action.name.replace(/^./, function(c) { return c.toUpperCase(); });
             return '<tr><td><label>' + action.longName + '</label></td>'
               + ((action.name != 'prev' && action.name != 'next') ? ('<td><input type="checkbox" name="choice' + capi + '" value="choice' + capi + '"'
               + (self.get('choice' + capi, 'true') == 'true' ? ' checked="checked"' : '') + '/></td>') : '<td></td>')
-              + (hasKeyboard ? ('<td><input type="text" name="key' + capi + '" value="' + self.get('key' + capi) + '"/></td>') : '') + '</tr>';
+              + '<td><input type="text" name="key' + capi + '" value="' + self.get('key' + capi) + '"/></td></tr>';
           }).join('')
     +   '</table>'
     + '</fieldset></p>'
@@ -1124,8 +1124,6 @@ function History() {
   });
 }
 
-var hasKeyboard = true;
-
 if (window.navigator.userAgent.indexOf('AppleWebKit') != -1
   && window.navigator.userAgent.indexOf('Mobile') != -1
   && window.navigator.userAgent.indexOf('Iris') == -1) {
@@ -1136,7 +1134,6 @@ if (window.navigator.userAgent.indexOf('AppleWebKit') != -1
     event.initEvent('scroll', true, false);
     document.dispatchEvent(event);
   };
-  hasKeyboard = false;
 }
 
 var postsNode = $('posts');
