@@ -846,9 +846,9 @@ Post.prototype.toggleLike = function() {
     }
   }
   else {
-    var button = $x('.//form[contains(@action,"like")][@style=""]', post)[0];
+    var button = $x('.//a[contains(@class,"like_button")]', post)[0];
     if (button)
-      button.onsubmit();
+      button.onclick();
   }
 };
 
