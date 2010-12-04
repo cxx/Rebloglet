@@ -16,7 +16,7 @@
 // @include        http://www.tumblr.com/tagged/*
 // @exclude        http://www.tumblr.com/tumblelog/*/followers
 // @license        Public domain
-// @version        0.3.20100409.0
+// @version        0.3.20101205.0
 // ==/UserScript==
 
 (function(){
