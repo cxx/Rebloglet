@@ -285,13 +285,12 @@ function Pager() {
   if (isIPhoneView) {
     this.nextLinkNode = $x('//a[./div[@id="load_more_posts"]]')[0];
     this.paginationNode = this.nextLinkNode;
-    this.postsExp = /<!-- START POSTS -->([\s\S]*)<!-- END POSTS -->/;
   }
   else {
     this.paginationNode = $('pagination');
     this.nextLinkNode = $x('./a[contains(text(),"Next page")]', this.paginationNode)[0];
-    this.postsExp = /<!-- Posts -->\s*<ol id="posts" ?>([\s\S]*)<\/ol>\s*<!-- No posts found -->/;
   }
+  this.postsExp = /<!-- START POSTS -->([\s\S]*)<!-- END POSTS -->/;
   nextLinkNode = this.nextLinkNode;
   paginationNode = this.paginationNode;
 
